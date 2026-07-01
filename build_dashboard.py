@@ -152,6 +152,14 @@ inv_small_drill = defaultdict(lambda: defaultdict(int))  # small -> nianji -> qt
 inv_wh     = defaultdict(int)  # wh -> qty (5大类)
 inv_wh_cat = defaultdict(lambda: defaultdict(int))  # cat -> wh -> qty
 inv_cat_nianji = defaultdict(lambda: defaultdict(int))  # cat -> nianji -> qty
+inv_channel_agg = {
+    ch: {
+        "cat": defaultdict(int), "nianji": defaultdict(int), "small": defaultdict(int),
+        "smallDrill": defaultdict(lambda: defaultdict(int)), "wh": defaultdict(lambda: defaultdict(int)),
+        "catNianji": defaultdict(lambda: defaultdict(int)),
+    }
+    for ch in ("all", "DL线上", "DL线下")
+}
 # SKC×渠道 库存（3大类）
 skc_inv_chan = defaultdict(lambda: defaultdict(int))  # skc -> chan -> qty
 excluded_payu_rows = 0
@@ -175,14 +183,38 @@ for r in ws.iter_rows(min_row=2, values_only=True):
     inv_wh[wh] += qty
     inv_wh_cat[cat][wh] += qty
     inv_cat_nianji[cat][meta["nianji"]] += qty
-    if cat in TARGET_CATS_3:
-        chan = WH_TO_CHAN.get(wh, "all")
+    chan = WH_TO_CHAN.get(wh, "all")
+    for view_chan in (["all", chan] if chan in {"DL线上", "DL线下"} else ["all"]):
+        agg = inv_channel_agg[view_chan]
+        agg["cat"][cat] += qty
+        agg["nianji"][meta["nianji"]] += qty
+        agg["small"][meta["small"]] += qty
+        agg["smallDrill"][meta["small"]][meta["nianji"]] += qty
+        agg["wh"][cat][wh] += qty
+        agg["catNianji"][cat][meta["nianji"]] += qty
+    if cat in TARGET_CATS_5:
         skc_inv_chan[skc][chan] += qty
 
 # 序列化
 CAT_ORDER = ["女鞋","服装","箱包","配件","赠品"]
 inv_cat_json = {c: inv_cat.get(c, 0) for c in CAT_ORDER}
 inv_cat_nianji_json = {c: dict(inv_cat_nianji[c]) for c in CAT_ORDER}
+
+def serialize_inv_channel(agg):
+    small_sorted = sorted(agg["small"].items(), key=lambda x: -x[1])
+    small_top = [{"label": k, "v": v} for k, v in small_sorted[:15]]
+    small_rest = sum(v for _, v in small_sorted[15:])
+    if small_rest > 0: small_top.append({"label": "其他小类", "v": small_rest})
+    return {
+        "cat": {c: agg["cat"].get(c, 0) for c in CAT_ORDER},
+        "nianji": [{"label": k, "v": v} for k, v in agg["nianji"].items()],
+        "small": small_top,
+        "smallDrill": {sm: [{"label": k, "v": v} for k, v in nd.items()] for sm, nd in agg["smallDrill"].items()},
+        "wh": {c: {w: q for w, q in sorted(agg["wh"][c].items(), key=lambda x: -x[1])[:10]} for c in CAT_ORDER},
+        "catNianji": {c: dict(agg["catNianji"][c]) for c in CAT_ORDER},
+    }
+
+inv_channel_data = {ch: serialize_inv_channel(agg) for ch, agg in inv_channel_agg.items()}
 
 nianji_sorted = sorted(inv_nianji.items(), key=lambda x: (x[0][:2], SEASON_ORDER.get(x[0][2:], 99)))
 inv_nianji_json = [{"label": k, "v": v} for k, v in nianji_sorted]
@@ -264,6 +296,7 @@ for (date, skc, chan), v in sku_day_chan.items():
     ym = date[:7]; key = (ym, skc, chan); a = month_agg[key]
     for i in range(5): a[i] += v[i]
 sku_month_chan = sorted([[ym,skc,chan]+v for (ym,skc,chan),v in month_agg.items()])
+sku_day_chan_out = sorted([[date,skc,chan]+v for (date,skc,chan),v in sku_day_chan.items()])
 
 # 近28天（截至 max_date 的前28天）
 from datetime import datetime, timedelta
@@ -340,10 +373,8 @@ content = content.replace("__MAX_YEAR__", max_date[:4])
 
 content = inject(content, "__DAILY_DATA__",       daily_out)
 content = inject(content, "__TARGETS__",           targets)
-content = inject(content, "__INV_NIANJI__",        inv_nianji_json)
-content = inject(content, "__INV_SMALL_DRILL__",   inv_small_drill_json)
-content = inject(content, "__INV_SMALL__",         inv_small_json)
 content = inject(content, "__SKU_MONTH_CHAN__",     sku_month_chan)
+content = inject(content, "__SKU_DAY_CHAN__",       sku_day_chan_out)
 content = inject(content, "__SKU_LAST28_CHAN__",    sku_last28)
 content = inject(content, "__SKC_CAT__",           skc_cat)
 content = inject(content, "__SKC_NAME__",          skc_name)
@@ -352,12 +383,7 @@ content = inject(content, "__SKC_INV_CHAN__",      skc_inv_chan_json)
 content = inject(content, "__SKC_FACTORY__",       skc_factory)
 content = inject(content, "__SKC_NIANJI__",       skc_nianji)
 content = inject(content, "__INV_CAT_NIANJI__",   inv_cat_nianji_json)
-
-# 各大类仓库分布 Top10
-content = inject(content, "__WH_BARS_BY_CAT__", wh_bars_by_cat)
-
-# 大类库存数据
-content = content.replace("__INV_CATEGORIES__", json.dumps(inv_cat_json, ensure_ascii=False, separators=(",",":")))
+content = inject(content, "__INV_CHANNEL_DATA__", inv_channel_data)
 
 output_path = path("index.html")
 with open(output_path, "w", encoding="utf-8") as f:

@@ -211,6 +211,12 @@
   .sku-search button{height:34px;border:0;border-radius:2px;padding:0 13px;font-weight:700;cursor:pointer;}
   .sku-search .search-btn{background:var(--ink);color:#fff;}
   .sku-search .clear-btn{background:#fff;color:#666;border:1px solid #cbc6c1;}
+  #custCompareTable{table-layout:fixed;}
+  #custCompareTable th{
+    height:68px;padding:8px 4px;text-align:center;vertical-align:middle;
+    line-height:1.35;white-space:normal;word-break:normal;
+  }
+  #custCompareTable td{vertical-align:middle;}
 
   @media (max-width:1100px){
     .grid.cols-5,.grid.cols-4{grid-template-columns:repeat(2,1fr);}
@@ -312,8 +318,8 @@
         <h4 style="margin:0;">各客户达成对比（点击客户行可下钻查看该客户趋势）</h4>
         <span style="color:var(--sub);font-size:12px;white-space:nowrap;">单位：万</span>
       </div>
-      <table>
-        <thead><tr><th>客户名称</th><th>支付金额</th><th>同期支付金额</th><th>支付同比</th><th>净销售额</th><th>同期净销售额</th><th>净销售额同比</th><th>指标目标</th><th>指标达成率</th><th>占比</th></tr></thead>
+      <table id="custCompareTable">
+        <thead><tr><th>客户<br>名称</th><th>支付<br>金额</th><th>同期支付<br>金额</th><th>支付<br>同比</th><th>净销售<br>额</th><th>同期<br>净销售额</th><th>净销售额<br>同比</th><th>指标<br>目标</th><th>指标达成<br>率</th><th>占比</th></tr></thead>
         <tbody id="custTableBody"></tbody>
       </table>
       <div class="note">渠道标签：DA=DA奉贤金汇+DA中环百联；DL线上=得物/抖音/京东/天猫/唯品会/小红书；DL线下=成都COSMO/南京IST/TX淮海/淮海百盛/TX长沙；其他=其余不规则店铺。其中 DA奉贤金汇、DA中环百联、其他 暂无「指标」目标值，达成率显示"无目标"。</div>
@@ -382,6 +388,11 @@
 
   <!-- ================= 三、库存概况（快照，不随时间筛选变化）================= -->
   <div class="section-head"><div class="num">3</div><h2>三、库存概况</h2><span style="margin-left:8px;font-size:11.5px;color:#7c8696;">（库存为静态快照，不随时间筛选变化）</span></div>
+  <div class="chan-tabs" id="invChannelTabs">
+    <button data-invchan="all" class="active">全渠道</button>
+    <button data-invchan="DL线上">DL线上</button>
+    <button data-invchan="DL线下">DL线下</button>
+  </div>
 
   <div class="grid cols-2" style="margin-bottom:14px;">
     <div class="card"><h4>按大类库存分布（女鞋/箱包/服装/配件/赠品）</h4>
@@ -469,7 +480,7 @@
   <!-- ================= 四、销售排行 ================= -->
   <div class="section-head"><div class="num">4</div><h2>四、销售排行</h2>
     <span style="margin-left:10px;font-size:11.5px;font-weight:700;color:var(--blue-deep);
-      background:#dbe7ff;padding:3px 12px;border-radius:12px;">期间口径跟随顶部时间筛选（按月折算）</span>
+      background:#dbe7ff;padding:3px 12px;border-radius:12px;">期间口径精确跟随顶部起止日期</span>
   </div>
   <div class="chan-tabs" id="skuCatTabs">
     <button data-cat="女鞋" class="active">女鞋</button>
@@ -500,7 +511,7 @@
     </table>
     </div>
     <div class="note" style="margin-top:8px;">
-      口径说明：期间净销量按月汇总，跟随顶部时间筛选自动折算覆盖到的月份，并可叠加渠道标签筛选；累计净销量、退货率、发货前退货率、发货后退货率均按<strong>全量累计</strong>口径计算（__MIN_DATE__ 至 __MAX_DATE__），不随顶部时间筛选变化；退货率=累计退货数量/累计销售数量，发货前退货率=(累计销售数量-累计实发数量)/累计销售数量，发货后退货率=累计实退数量/累计实发数量；周转率=当前可用库存/近4周（最近28天，截至__MAX_DATE__）平均周净销量，不随顶部时间筛选变化，但随渠道标签联动。默认按期间净销量从高到低展示前30个SKC。
+      口径说明：期间净销量按日级数据汇总，精确跟随顶部起止日期，并可叠加渠道标签筛选；累计净销量、退货率、发货前退货率、发货后退货率均按<strong>全量累计</strong>口径计算（__MIN_DATE__ 至 __MAX_DATE__），不随顶部时间筛选变化；退货率=累计退货数量/累计销售数量，发货前退货率=(累计销售数量-累计实发数量)/累计销售数量，发货后退货率=累计实退数量/累计实发数量；周转率=当前可用库存/近4周（最近28天，截至__MAX_DATE__）平均周净销量，不随顶部时间筛选变化，但随渠道标签联动。默认按期间净销量从高到低展示前30个SKC。
     </div>
   </div>
 
@@ -1005,6 +1016,8 @@ function render(){
 /* ============ SKC × 月 × 渠道 聚合数据（覆盖5大类；销售排行界面仍限女鞋/服装/箱包）============ */
 // 每行: [月份YYYY-MM, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
 const SKU_MONTH_CHAN = __SKU_MONTH_CHAN__;
+// 日级数据，用于“期间净销量”严格跟随顶部日/月/年/自定义日期范围
+const SKU_DAY_CHAN = __SKU_DAY_CHAN__;
 // 近4周(最近28天，截至__MAX_DATE__)逐日数据，仅用于周转率计算: [日期, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
 const SKU_LAST28_CHAN = __SKU_LAST28_CHAN__;
 const SKC_CAT = __SKC_CAT__;      // SKC -> 大类
@@ -1013,7 +1026,7 @@ const SKC_IMAGE = __SKC_IMAGE__;  // SKC -> 网页商品图片相对 URL
 const SKC_INV_CHAN = __SKC_INV_CHAN__;  // SKC -> {渠道 -> 库存量}，渠道值为 DA/DL线上/DL线下/all(无明确归属仓库)
 const SKC_FACTORY = __SKC_FACTORY__;   // SKC -> 生产工厂名称（5大类范围）
 const SKC_NIANJI = __SKC_NIANJI__;     // SKC -> 年季
-const INV_CAT_NIANJI = __INV_CAT_NIANJI__; // 大类 -> 年季 -> 可用库存
+let INV_CAT_NIANJI = __INV_CAT_NIANJI__; // 大类 -> 年季 -> 可用库存
 // 按当前渠道标签取对应库存：全渠道=所有渠道求和；其他/DA/DL线上/DL线下=对应渠道库存+通用仓(all)
 function getSkcInv(skc){
   const d = SKC_INV_CHAN[skc];
@@ -1041,10 +1054,6 @@ function skuMatchesFilter(skc){
 }
 
 function renderSkuRanking(start,end){
-  // 把当前选中的日期区间折算成覆盖到的月份集合（SKU期间/累计数据只有月粒度）
-  const dl = daysInRange(start,end);
-  const periodMonths = new Set(dl.map(d=>d.slice(0,7)));
-
   const periodAgg = {}; // skc -> {netQty,saleQty,retQty,shipQty,prQty}
   const cumAgg = {};
   SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty,saleQty,retQty,shipQty,prQty])=>{
@@ -1053,11 +1062,14 @@ function renderSkuRanking(start,end){
     if(!cumAgg[skc]) cumAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
     const c = cumAgg[skc];
     c.netQty+=netQty; c.saleQty+=saleQty; c.retQty+=retQty; c.shipQty+=shipQty; c.prQty+=prQty;
-    if(periodMonths.has(ym)){
-      if(!periodAgg[skc]) periodAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
-      const p = periodAgg[skc];
-      p.netQty+=netQty; p.saleQty+=saleQty; p.retQty+=retQty; p.shipQty+=shipQty; p.prQty+=prQty;
-    }
+  });
+  SKU_DAY_CHAN.forEach(([date,skc,chan,netQty,saleQty,retQty,shipQty,prQty])=>{
+    if(date<start || date>end) return;
+    if(!skuMatchesFilter(skc)) return;
+    if(!skuChanMatch(chan)) return;
+    if(!periodAgg[skc]) periodAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
+    const p = periodAgg[skc];
+    p.netQty+=netQty; p.saleQty+=saleQty; p.retQty+=retQty; p.shipQty+=shipQty; p.prQty+=prQty;
   });
 
   // 近4周净销量（用于周转率，固定取最近28天，不随顶部时间筛选变化，但跟渠道标签联动）
@@ -1149,9 +1161,11 @@ document.getElementById("skuSearchClearBtn").addEventListener("click", ()=>{
 
 
 const CAT_ORDER = ["女鞋","服装","箱包","配件","赠品"];
-const INV_CATEGORIES = __INV_CATEGORIES__;
+const INV_CHANNEL_DATA = __INV_CHANNEL_DATA__;
+let invChannel = "all";
+let INV_CATEGORIES = INV_CHANNEL_DATA.all.cat;
 /* ============ 库存数据（静态快照，已按「商品物料」SKC映射，仅保留女鞋/箱包/服装/配件/赠品5大类）============ */
-const WH_BARS_BY_CAT = __WH_BARS_BY_CAT__;
+let WH_BARS_BY_CAT = INV_CHANNEL_DATA.all.wh;
 let whCategory = "女鞋";
 function renderWarehouseBars(){
   const warehouses = WH_BARS_BY_CAT[whCategory] || {};
@@ -1180,8 +1194,8 @@ document.querySelectorAll("#whCatTabs button").forEach(btn=>{
 });
 renderWarehouseBars();
 
-const invCatTotal = Object.values(INV_CATEGORIES).reduce((a,b)=>a+b,0);
-new Chart(document.getElementById("invCatChart"),{
+let invCatTotal = Object.values(INV_CATEGORIES).reduce((a,b)=>a+b,0);
+let invCatChart = new Chart(document.getElementById("invCatChart"),{
   type:"doughnut",
   data:{labels:CAT_ORDER, datasets:[{data:CAT_ORDER.map(c=>INV_CATEGORIES[c]),
     backgroundColor:["#ff008c","#00bfa6","#ff6b00","#7b2cff","#69f2df"]}]},
@@ -1196,17 +1210,21 @@ new Chart(document.getElementById("invCatChart"),{
     }}
 });
 const invCatTbody = document.getElementById("invCatTableBody");
-const invCatCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,0]));
-const invCatNianjiCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,{}]));
-SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty])=>{
-  const cat = SKC_CAT[skc];
-  if(invCatCumNetQty[cat] !== undefined){
-    invCatCumNetQty[cat] += netQty;
-    const nianji = SKC_NIANJI[skc] || "未知年季";
-    invCatNianjiCumNetQty[cat][nianji] = (invCatNianjiCumNetQty[cat][nianji]||0) + netQty;
-  }
-});
-CAT_ORDER.forEach(name=>{
+let invCatNianjiCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,{}]));
+function renderInvCatTable(){
+  invCatTbody.innerHTML = "";
+  const invCatCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,0]));
+  invCatNianjiCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,{}]));
+  SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty])=>{
+    if(invChannel!=="all" && chan!==invChannel) return;
+    const cat = SKC_CAT[skc];
+    if(invCatCumNetQty[cat] !== undefined){
+      invCatCumNetQty[cat] += netQty;
+      const nianji = SKC_NIANJI[skc] || "未知年季";
+      invCatNianjiCumNetQty[cat][nianji] = (invCatNianjiCumNetQty[cat][nianji]||0) + netQty;
+    }
+  });
+  CAT_ORDER.forEach(name=>{
   const v = INV_CATEGORIES[name] || 0;
   const cumNetQty = invCatCumNetQty[name] || 0;
   const digestionRate = (cumNetQty+v)>0 ? cumNetQty/(cumNetQty+v) : NaN;
@@ -1223,7 +1241,9 @@ CAT_ORDER.forEach(name=>{
     </div></td><td style="font-weight:800;color:#ff008c;">${isFinite(digestionRate)?(digestionRate*100).toFixed(1)+"%":"--"}</td>`;
   tr.addEventListener("click",()=>renderInvCatNianjiDrill(name));
   invCatTbody.appendChild(tr);
-});
+  });
+}
+renderInvCatTable();
 
 function renderInvCatNianjiDrill(cat){
   const invByNianji = INV_CAT_NIANJI[cat] || {};
@@ -1232,7 +1252,7 @@ function renderInvCatNianjiDrill(cat){
   const seasonOrder = {"春":0,"夏":1,"秋":2,"冬":3};
   labels.sort((a,b)=>{
     const ya=a.slice(0,2), yb=b.slice(0,2);
-    if(ya!==yb) return yb.localeCompare(ya);
+    if(ya!==yb) return ya.localeCompare(yb);
     return (seasonOrder[a.slice(2)]??99)-(seasonOrder[b.slice(2)]??99);
   });
   const body = document.getElementById("invCatDrillBody");
@@ -1259,14 +1279,14 @@ document.getElementById("invCatDrillBackBtn").addEventListener("click",()=>{
 
 /* ============ 年季库存总览（5大类合计，按年份+春夏秋冬固定排序）============ */
 const SEASON_ORDER = {"春":0,"夏":1,"秋":2,"冬":3};
-const INV_NIANJI_RAW = __INV_NIANJI__;
-const INV_NIANJI = [...INV_NIANJI_RAW].sort((a,b)=>{
+let INV_NIANJI_RAW = INV_CHANNEL_DATA.all.nianji;
+let INV_NIANJI = [...INV_NIANJI_RAW].sort((a,b)=>{
   const ya = a.label.slice(0,2), sa = a.label.slice(2);
   const yb = b.label.slice(0,2), sb = b.label.slice(2);
   if(ya !== yb) return ya.localeCompare(yb);
   return (SEASON_ORDER[sa]??99) - (SEASON_ORDER[sb]??99);
 });
-new Chart(document.getElementById("invNianjiChart"),{
+let invNianjiChart = new Chart(document.getElementById("invNianjiChart"),{
   type:"bar",
   data:{labels:INV_NIANJI.map(it=>it.label), datasets:[{label:"库存量",data:INV_NIANJI.map(it=>it.v),
     backgroundColor:"#ff4daa",borderRadius:4}]},
@@ -1276,9 +1296,9 @@ new Chart(document.getElementById("invNianjiChart"),{
 });
 
 /* ============ 小类库存总览（Top15+其他，点击柱子下钻到 年季）============ */
-const INV_SMALL = __INV_SMALL__;
-const INV_SMALL_DRILL = __INV_SMALL_DRILL__;
-const invSmallChart = new Chart(document.getElementById("invSmallChart"),{
+let INV_SMALL = INV_CHANNEL_DATA.all.small;
+let INV_SMALL_DRILL = INV_CHANNEL_DATA.all.smallDrill;
+let invSmallChart = new Chart(document.getElementById("invSmallChart"),{
   type:"bar",
   data:{labels:INV_SMALL.map(it=>it.label), datasets:[{label:"库存量",data:INV_SMALL.map(it=>it.v),
     backgroundColor:"#7b2cff",borderRadius:4}]},
@@ -1328,6 +1348,7 @@ function renderFactoryChart(start, end){
   const skcPeriodNetQty = {};
   SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty])=>{
     if(SKC_CAT[skc] !== factoryCat) return;
+    if(invChannel!=="all" && chan!==invChannel) return;
     if(!periodMonths.has(ym)) return;
     skcPeriodNetQty[skc] = (skcPeriodNetQty[skc]||0) + netQty;
   });
@@ -1336,7 +1357,7 @@ function renderFactoryChart(start, end){
   function totalInv(skc){
     const d = SKC_INV_CHAN[skc];
     if(!d) return 0;
-    return Object.values(d).reduce((s,v)=>s+v,0);
+    return invChannel==="all" ? Object.values(d).reduce((s,v)=>s+v,0) : (d[invChannel]||0);
   }
 
   // 按工厂汇总：期间净销量 + 可用库存
@@ -1391,6 +1412,7 @@ function renderSlowMoving(){
   const last28NetQty = {};
   SKU_LAST28_CHAN.forEach(([date,skc,chan,netQty])=>{
     if(SKC_CAT[skc] !== slowMovingCat) return;
+    if(invChannel!=="all" && chan!==invChannel) return;
     last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
   });
 
@@ -1399,7 +1421,7 @@ function renderSlowMoving(){
   Object.keys(SKC_CAT).forEach(skc=>{
     if(SKC_CAT[skc] !== slowMovingCat) return;
     const d = SKC_INV_CHAN[skc];
-    const inv = d ? Object.values(d).reduce((s,v)=>s+v,0) : 0;
+    const inv = d ? (invChannel==="all" ? Object.values(d).reduce((s,v)=>s+v,0) : (d[invChannel]||0)) : 0;
     if(inv <= 50) return;  // 库存≤50件不计入预警
     const netQty28 = last28NetQty[skc] || 0;
     const avgWeekly = netQty28 / 4;
@@ -1442,6 +1464,45 @@ document.querySelectorAll("#slowMovingTabs button").forEach(btn=>{
 });
 
 renderSlowMoving();
+
+function applyInventoryChannel(){
+  const data = INV_CHANNEL_DATA[invChannel] || INV_CHANNEL_DATA.all;
+  INV_CATEGORIES = data.cat;
+  WH_BARS_BY_CAT = data.wh;
+  INV_CAT_NIANJI = data.catNianji;
+  INV_NIANJI_RAW = data.nianji;
+  INV_NIANJI = [...INV_NIANJI_RAW].sort((a,b)=>{
+    const ya=a.label.slice(0,2), yb=b.label.slice(0,2);
+    if(ya!==yb) return ya.localeCompare(yb);
+    return (SEASON_ORDER[a.label.slice(2)]??99)-(SEASON_ORDER[b.label.slice(2)]??99);
+  });
+  INV_SMALL = data.small;
+  INV_SMALL_DRILL = data.smallDrill;
+  invCatTotal = Object.values(INV_CATEGORIES).reduce((a,b)=>a+b,0);
+  invCatChart.data.datasets[0].data = CAT_ORDER.map(c=>INV_CATEGORIES[c]||0);
+  invCatChart.update();
+  renderInvCatTable();
+  document.getElementById("invCatDrillBackBtn").click();
+  invNianjiChart.data.labels = INV_NIANJI.map(it=>it.label);
+  invNianjiChart.data.datasets[0].data = INV_NIANJI.map(it=>it.v);
+  invNianjiChart.update();
+  invSmallChart.data.labels = INV_SMALL.map(it=>it.label);
+  invSmallChart.data.datasets[0].data = INV_SMALL.map(it=>it.v);
+  invSmallChart.update();
+  document.getElementById("invSmallDrillBackBtn").click();
+  renderWarehouseBars();
+  const {start,end} = getRange();
+  renderFactoryChart(start,end);
+  renderSlowMoving();
+}
+document.querySelectorAll("#invChannelTabs button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#invChannelTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    invChannel = btn.dataset.invchan;
+    applyInventoryChannel();
+  });
+});
 
 /* ============ 筛选交互 ============ */
 const ctrlMap = {day:"ctrlDay",month:"ctrlMonth",year:"ctrlYear",custom:"ctrlCustom"};
