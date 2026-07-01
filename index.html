@@ -818,7 +818,7 @@ function render(){
     return {c, saleAmt, yoySaleAmt, netAmt, yoyNetAmt, actual, tgt, rate, hasTarget, isDLOnline};
   }).sort((a,b)=>b.saleAmt-a.saleAmt);
 
-  const customerTotalSaleAmt = rowsForTable.reduce((s,r)=>s+Math.max(r.saleAmt,0),0);
+  const customerTotalNetAmt = rowsForTable.reduce((s,r)=>s+Math.max(r.netAmt,0),0);
 
   rowsForTable.forEach(r=>{
     const tr = document.createElement("tr");
@@ -832,7 +832,7 @@ function render(){
       const cls = pct>=100 ? "b-good" : pct>=80 ? "b-ok" : pct>=60 ? "b-mid" : "b-high";
       badge = `<span class="badge ${cls}">${pct.toFixed(1)}%</span>`;
     }
-    const sharePct = customerTotalSaleAmt>0 ? (Math.max(r.saleAmt,0)/customerTotalSaleAmt*100) : 0;
+    const sharePct = customerTotalNetAmt>0 ? (Math.max(r.netAmt,0)/customerTotalNetAmt*100) : 0;
     const shareCell = `<span style="font-weight:700;">${sharePct.toFixed(1)}%</span>`;
     const nameCell = r.isDLOnline ? `${r.c}<span title="本期净销售额按支付金额×30%计入" style="color:#ff6b00;font-weight:700;">*</span>` : r.c;
     const yoyPct = r.yoySaleAmt>0 ? (r.saleAmt-r.yoySaleAmt)/r.yoySaleAmt : NaN;

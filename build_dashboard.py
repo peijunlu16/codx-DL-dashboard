@@ -6,7 +6,7 @@
   1. 将本脚本与5张Excel文件、dashboard_template.html 放在同一目录下
   2. 安装依赖：pip install openpyxl
   3. 运行：python build_dashboard.py
-  4. 生成：经营驾驶舱.html（直接用浏览器打开即可）
+  4. 生成：index.html（GitHub Pages 首页，直接用浏览器打开即可）
 
 每次更新Excel后重新运行本脚本即可。
 """
@@ -347,12 +347,12 @@ content = content.replace("__WH_BARS__", wh_js)
 # 大类库存数据
 content = content.replace("__INV_CATEGORIES__", json.dumps(inv_cat_json, ensure_ascii=False, separators=(",",":")))
 
-output_path = path("经营驾驶舱.html")
+output_path = path("index.html")
 with open(output_path, "w", encoding="utf-8") as f:
     f.write(content)
 
 print("=" * 60)
-print(f"[OK] 生成完成：经营驾驶舱.html")
+print(f"[OK] 生成完成：index.html")
 print(f"   数据范围：{min_date} ~ {max_date}")
 print(f"   文件大小：{os.path.getsize(output_path)/1024:.0f} KB")
 print("=" * 60)
