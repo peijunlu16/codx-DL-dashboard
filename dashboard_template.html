@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>经营驾驶舱</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root{
+    --bg:#eef2f8; --card:#ffffff; --blue:#ff008c; --blue-deep:#c4006c;
+    --teal:#00bfa6; --orange:#ff6b00; --purple:#7b2cff; --text:#1f2937; --sub:#7c8696;
+    --line:#e6eaf2; --bad:#ff4d4f; --good:#00bfa6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .wrap{max-width:1440px;margin:0 auto;padding:20px;}
+  .topbar{display:flex;align-items:center;gap:10px;padding:6px 4px 14px;}
+  .topbar .dot{width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));}
+  .topbar h1{font-size:22px;margin:0;font-weight:700;}
+  .topbar .updated{margin-left:auto;font-size:12px;color:var(--sub);}
+
+  /* 时间筛选卡片 */
+  .filter-card{background:var(--card);border-radius:12px;padding:12px 16px;box-shadow:0 1px 3px rgba(20,30,60,.06);
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+  .filter-card .seg{display:flex;background:#f0f3f9;border-radius:8px;padding:3px;gap:2px;}
+  .filter-card .seg button{border:none;background:transparent;padding:6px 14px;border-radius:6px;font-size:12.5px;
+    cursor:pointer;color:#5b6573;font-weight:600;}
+  .filter-card .seg button.active{background:var(--blue);color:#fff;}
+  .filter-card input[type=date],.filter-card input[type=month],.filter-card select{
+    border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;color:#333;background:#fff;}
+  .filter-card .grp{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);}
+  .filter-card .apply{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:7px 16px;
+    font-size:12.5px;font-weight:700;cursor:pointer;}
+  .filter-card .apply:hover{background:var(--blue-deep);}
+  .filter-card .range-tag{margin-left:auto;font-size:12px;color:var(--blue-deep);font-weight:700;
+    background:#eaf0ff;padding:6px 12px;border-radius:7px;}
+
+  .section-head{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#dce8ff,#eef4ff);
+    border-radius:10px;padding:12px 18px;margin:18px 0 12px;}
+  .section-head .num{width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+  .section-head h2{margin:0;font-size:17px;font-weight:700;color:var(--blue-deep);}
+
+  .sub-head{display:flex;align-items:center;gap:8px;margin:14px 4px 10px;}
+  .sub-head .bullet{width:8px;height:8px;border-radius:50%;background:var(--blue);}
+  .sub-head h3{margin:0;font-size:14px;font-weight:700;color:#374151;}
+
+  .chan-tabs{display:flex;gap:8px;margin:0 4px 12px;flex-wrap:wrap;}
+  .chan-tabs button{border:1px solid var(--line);background:#fff;color:#5b6573;font-size:12.5px;
+    font-weight:600;padding:6px 16px;border-radius:18px;cursor:pointer;}
+  .chan-tabs button.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .chan-tabs button:hover:not(.active){border-color:var(--blue);color:var(--blue);}
+
+  .grid{display:grid;gap:14px;}
+  .grid.cols-2{grid-template-columns:1fr 1fr;}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols-4{grid-template-columns:repeat(4,1fr);}
+  .grid.cols-5{grid-template-columns:repeat(5,1fr);}
+
+  .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(20,30,60,.06);}
+
+  .kpi{padding:14px 16px;border-radius:12px;color:#fff;position:relative;overflow:hidden;}
+  .kpi .label{font-size:12px;opacity:.9;}
+  .kpi .value{font-size:24px;font-weight:800;margin:4px 0 8px;}
+  .kpi .row{font-size:11.5px;opacity:.95;display:flex;justify-content:space-between;}
+  .kpi.blue{background:linear-gradient(135deg,#ff4daa,#ff008c);}
+  .kpi.orange{background:linear-gradient(135deg,#ffab66,#ff6b00);}
+  .kpi.purple{background:linear-gradient(135deg,#a98cf2,#7b2cff);}
+  .kpi.teal{background:linear-gradient(135deg,#69f2df,#00bfa6);}
+
+  .ring-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+  .ring-wrap{position:relative;width:170px;height:170px;}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-center .pct{font-size:26px;font-weight:800;color:var(--blue-deep);}
+  .ring-center .lbl{font-size:11px;color:var(--sub);margin-top:2px;text-align:center;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{background:#f4f7fc;color:var(--sub);font-weight:600;padding:8px 6px;text-align:left;}
+  td{padding:7px 6px;border-bottom:1px solid var(--line);}
+  tr:hover td{background:#f8faff;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:5px;font-weight:700;color:#fff;font-size:11.5px;}
+  .b-high{background:var(--bad);} .b-mid{background:var(--orange);} .b-ok{background:var(--blue);} .b-good{background:var(--good);}
+
+  .bar-list .bar-row{display:flex;align-items:center;gap:8px;margin:9px 0;}
+  .bar-row .name{width:90px;font-size:12px;color:#444;flex-shrink:0;text-align:right;}
+  .bar-row .track{flex:1;background:#eef1f8;border-radius:5px;height:14px;overflow:hidden;}
+  .bar-row .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#ff4daa,#ff008c);}
+  .bar-row .val{width:90px;font-size:12px;color:#333;font-weight:600;}
+
+  .chart-box{height:260px;}
+  .chart-box.sm{height:200px;}
+  .placeholder{border:1.5px dashed #cfcac5;border-radius:10px;color:var(--sub);
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;height:100%;min-height:160px;text-align:center;padding:10px;}
+  .note{font-size:11px;color:var(--sub);margin-top:6px;}
+  .card h4{margin:0 0 10px;font-size:13px;color:#374151;}
+</style>
+<style>
+  /* DAPHNE.LAB VI refresh — hot pink / black / white / acid accents */
+  :root{
+    --bg:#f4f3f1; --card:#fff; --blue:#ff008c; --blue-deep:#151515;
+    --teal:#00bfa6; --orange:#ff6b00; --purple:#7b2cff; --text:#171717; --sub:#737373;
+    --line:#dedbd7; --bad:#f0446c; --good:#00a98f;
+    --pink:#ff008c; --pink-soft:#ffe4f3; --ink:#111; --acid:#c9ff22; --cyan:#21c8f6;
+  }
+  html{background:var(--bg);}
+  body{
+    background:
+      radial-gradient(circle at 5% 0%,rgba(255,0,140,.10),transparent 22rem),
+      linear-gradient(180deg,#f8f7f5 0,#f1efec 100%);
+    color:var(--text);letter-spacing:.01em;
+  }
+  .wrap{max-width:1520px;padding:0 24px 48px;}
+
+  .topbar{
+    position:relative;margin:0 -24px 20px;padding:22px 28px 20px;gap:14px;
+    background:#0e0e0f;color:#fff;border-bottom:6px solid var(--pink);overflow:hidden;
+  }
+  .topbar::after{
+    content:"DARE TO BE.";position:absolute;right:28px;bottom:-14px;
+    font:900 54px/1 Arial,sans-serif;font-style:italic;letter-spacing:-.06em;
+    color:rgba(255,0,140,.30);pointer-events:none;
+  }
+  .topbar .dot{
+    width:34px;height:34px;border-radius:0;background:var(--pink);position:relative;
+    clip-path:polygon(0 0,100% 0,72% 100%,0 100%);
+  }
+  .topbar .dot::after{content:"D";position:absolute;left:7px;top:3px;color:#050505;font:900 22px/1.3 Arial;}
+  .topbar h1{font-size:24px;letter-spacing:.04em;position:relative;z-index:1;}
+  .topbar h1::before{content:"DAPHNE.LAB  /  ";color:var(--pink);font-weight:900;}
+  .topbar .updated{color:#bdbdbd;position:relative;z-index:1;}
+
+  .filter-card{
+    position:sticky;top:10px;z-index:20;border-radius:2px;padding:11px 14px;margin-bottom:18px;
+    border:1px solid #d7d4d0;border-left:5px solid var(--pink);
+    box-shadow:0 10px 32px rgba(0,0,0,.08);backdrop-filter:blur(14px);
+  }
+  .filter-card .seg{background:#ece9e6;border-radius:2px;padding:3px;}
+  .filter-card .seg button,.filter-card input[type=date],.filter-card input[type=month],.filter-card select,
+  .filter-card .apply,.filter-card .range-tag{border-radius:2px;}
+  .filter-card .seg button.active,.filter-card .apply{background:var(--ink);color:#fff;}
+  .filter-card .apply:hover{background:var(--pink);}
+  .filter-card .range-tag{background:var(--pink-soft);color:#a5005b;border:1px solid #ffc0e3;}
+
+  .section-head{
+    position:relative;background:var(--ink);border-radius:2px;padding:14px 18px;margin:24px 0 14px;
+    border-left:8px solid var(--pink);overflow:hidden;
+  }
+  .section-head::after{content:"DAPHNE.LAB";margin-left:auto;color:#333;font:900 20px/1 Arial;letter-spacing:.08em;}
+  .section-head .num{background:var(--pink);color:#111;border-radius:0;transform:skew(-10deg);}
+  .section-head h2{color:#fff;font-size:18px;letter-spacing:.04em;}
+  .section-head > span{border-radius:2px!important;background:#2b2b2b!important;color:#fff!important;}
+  .sub-head{margin:17px 4px 10px;}
+  .sub-head .bullet{width:18px;height:5px;border-radius:0;background:var(--pink);transform:skew(-18deg);}
+  .sub-head h3{color:#242424;font-size:14px;letter-spacing:.02em;}
+  .sub-head button{border-radius:2px!important;border-color:var(--ink)!important;color:var(--ink)!important;}
+
+  .chan-tabs{gap:6px;}
+  .chan-tabs button{border-radius:2px;border-color:#cbc7c3;background:#fff;padding:7px 17px;}
+  .chan-tabs button.active{background:var(--pink);border-color:var(--pink);color:#111;box-shadow:3px 3px 0 #111;}
+  .chan-tabs button:hover:not(.active){border-color:var(--pink);color:#a5005b;}
+
+  .grid{gap:12px;}
+  .card{
+    border-radius:3px;border:1px solid #dfdcd8;padding:16px;
+    box-shadow:0 5px 0 rgba(20,20,20,.04),0 10px 26px rgba(20,20,20,.035);
+  }
+  .card h4{text-transform:none;color:#242424;}
+  .kpi{border-radius:3px;color:#111;border:none;min-height:132px;box-shadow:none;}
+  .kpi::after{
+    content:"";position:absolute;width:72px;height:72px;right:-23px;top:-24px;
+    border:13px solid rgba(0,0,0,.11);transform:rotate(26deg);
+  }
+  .kpi .label{font-weight:800;opacity:.72;letter-spacing:.05em;}
+  .kpi .value{font-size:26px;letter-spacing:-.02em;}
+  .kpi .row{border-top:1px solid rgba(0,0,0,.13);padding-top:4px;margin-top:3px;}
+  .kpi.blue{background:linear-gradient(135deg,#ff33a3,var(--pink));}
+  .kpi.orange{background:linear-gradient(135deg,#ff9b45,#ff6b00);}
+  .kpi.purple{background:linear-gradient(135deg,#ad73ff,#7b2cff);color:#fff;}
+  .kpi.teal{background:linear-gradient(135deg,#69f2df,#00bfa6);}
+
+  .ring-center .pct{color:var(--ink);font-size:28px;}
+  .ring-center .lbl{color:#777;}
+  th{background:#171717;color:#fff;padding:9px 7px;}
+  td{border-bottom-color:#e6e2df;}
+  tr:hover td{background:#fff0f8;}
+  .badge{border-radius:2px;color:#111;}
+  .b-high{background:#ff4f87}.b-mid{background:#ff8a45}.b-ok{background:#21c8f6}.b-good{background:#48dcc5}
+  .bar-row .track{background:#ece9e6;border-radius:0;height:12px;}
+  .bar-row .fill{border-radius:0;background:linear-gradient(90deg,var(--pink),#ff66bb);}
+  .placeholder{border-radius:2px;border-color:#c7c2bd;background:#faf9f7;}
+  .note{line-height:1.6;}
+  canvas{filter:saturate(1.12);}
+  .product-image-cell{width:76px;min-width:76px;padding:5px!important;text-align:center;}
+  .product-thumb{
+    display:block;width:62px;height:62px;margin:auto;object-fit:contain;background:#f7f5f2;
+    border:1px solid #e0dcd8;border-radius:2px;transition:transform .18s ease,box-shadow .18s ease;
+  }
+  .product-thumb:hover{transform:scale(1.8);box-shadow:0 8px 24px rgba(0,0,0,.24);position:relative;z-index:5;background:#fff;}
+  .product-no-image{
+    display:flex;width:62px;height:62px;margin:auto;align-items:center;justify-content:center;
+    background:#f0edeb;color:#aaa;border:1px dashed #cbc6c1;font-size:10px;line-height:1.3;
+  }
+
+  @media (max-width:1100px){
+    .grid.cols-5,.grid.cols-4{grid-template-columns:repeat(2,1fr);}
+    .topbar::after{display:none;}
+  }
+  @media (max-width:760px){
+    .wrap{padding:0 12px 30px;}.topbar{margin:0 -12px 14px;padding:18px 16px;}
+    .topbar h1{font-size:18px}.topbar h1::before{display:block;font-size:11px;margin-bottom:3px;}
+    .topbar .updated{display:none}.filter-card{position:relative;top:auto;}
+    .grid.cols-2,.grid.cols-3,.grid.cols-4,.grid.cols-5{grid-template-columns:1fr;}
+    .section-head::after{display:none}.kpi{min-height:118px;}
+    .chart-box{height:230px;}table{font-size:11px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="dot"></div><h1>经营驾驶舱</h1>
+    <div class="updated">数据范围 __MIN_DATE__ ~ __MAX_DATE__</div>
+  </div>
+
+  <!-- ================= 时间筛选 ================= -->
+  <div class="filter-card">
+    <div class="seg" id="modeSeg">
+      <button data-mode="day">日</button>
+      <button data-mode="month">月</button>
+      <button data-mode="year" class="active">年</button>
+      <button data-mode="custom">自定义</button>
+    </div>
+
+    <div class="grp" id="ctrlDay" style="display:none">
+      <span>选择日期</span><input type="date" id="dayPicker" min="__MIN_DATE__" max="__MAX_DATE__" value="__MAX_DATE__">
+    </div>
+    <div class="grp" id="ctrlMonth" style="display:none">
+      <span>选择月份</span><input type="month" id="monthPicker" min="2025-01" max="2026-06" value="2026-06">
+    </div>
+    <div class="grp" id="ctrlYear">
+      <span>选择年份</span>
+      <select id="yearPicker">
+        <option value="2025">2025年</option>
+        <option value="2026" selected>2026年</option>
+        <option value="all">全部年份</option>
+      </select>
+    </div>
+    <div class="grp" id="ctrlCustom" style="display:none">
+      <span>从</span><input type="date" id="customStart" min="__MIN_DATE__" max="__MAX_DATE__" value="__MIN_DATE__">
+      <span>到</span><input type="date" id="customEnd" min="__MIN_DATE__" max="__MAX_DATE__" value="__MAX_DATE__">
+    </div>
+
+    <button class="apply" id="applyBtn">应用</button>
+    <div class="range-tag" id="rangeTag">当前范围：2026年</div>
+  </div>
+
+  <!-- ================= 一、达成概况 ================= -->
+  <div class="section-head"><div class="num">1</div><h2>一、达成概况</h2></div>
+
+  <div class="sub-head"><div class="bullet"></div><h3>整体达成（净销售额 vs 指标目标）</h3></div>
+  <div class="chan-tabs" id="chanTabs">
+    <button data-chan="all" class="active">全部</button>
+    <button data-chan="DA">DA</button>
+    <button data-chan="DL线上">DL线上</button>
+    <button data-chan="DL线下">DL线下</button>
+    <button data-chan="其他">其他</button>
+  </div>
+  <div class="grid cols-3">
+    <div class="card ring-card">
+      <div class="ring-wrap"><canvas id="ringRevenue"></canvas>
+        <div class="ring-center"><div class="pct" id="ringRevenueTxt">--</div><div class="lbl">指标达成率</div></div>
+      </div>
+    </div>
+    <div class="card kpi blue">
+      <div class="label">净销售额</div>
+      <div class="value" id="kpiNetAmt">--</div>
+      <div class="row"><span>同比</span><span id="kpiYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="kpiMom">--</span></div>
+      <div class="row"><span>指标目标</span><span id="kpiNetAmtTarget">--</span></div>
+      <div class="row"><span>指标达成率</span><span id="kpiNetAmtRate">--</span></div>
+    </div>
+    <div class="card kpi teal">
+      <div class="label">净销量（件）</div>
+      <div class="value" id="kpiNetQty">--</div>
+      <div class="row"><span>销售数量</span><span id="kpiSaleQty">--</span></div>
+      <div class="row"><span>退货数量</span><span id="kpiRetQty">--</span></div>
+    </div>
+  </div>
+  <div class="note" id="dlOnlineNote" style="display:none;background:#fff7ea;border:1px solid #ffe2b0;color:#a06a14;
+    padding:8px 12px;border-radius:8px;margin:8px 4px 0;"></div>
+
+  <div class="sub-head"><div class="bullet"></div><h3 id="trendTitle">收入趋势</h3>
+    <button id="drillBackBtn" style="display:none;margin-left:8px;border:1px solid var(--blue);background:#fff;
+      color:var(--blue);font-size:11.5px;font-weight:700;padding:3px 12px;border-radius:14px;cursor:pointer;">× 返回全部客户</button>
+  </div>
+  <div class="grid cols-2">
+    <div class="card"><div class="chart-box"><canvas id="trendChart"></canvas></div></div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
+        <h4 style="margin:0;">各客户达成对比（点击客户行可下钻查看该客户趋势）</h4>
+        <span style="color:var(--sub);font-size:12px;white-space:nowrap;">单位：万</span>
+      </div>
+      <table>
+        <thead><tr><th>客户名称</th><th>支付金额</th><th>同期支付金额</th><th>支付同比</th><th>净销售额</th><th>同期净销售额</th><th>净销售额同比</th><th>指标目标</th><th>指标达成率</th><th>占比</th></tr></thead>
+        <tbody id="custTableBody"></tbody>
+      </table>
+      <div class="note">渠道标签：DA=DA奉贤金汇+DA中环百联；DL线上=得物/抖音/京东/天猫/唯品会/小红书；DL线下=成都COSMO/南京IST/TX淮海/淮海百盛/TX长沙；其他=其余不规则店铺。其中 DA奉贤金汇、DA中环百联、其他 暂无「指标」目标值，达成率显示"无目标"。</div>
+    </div>
+  </div>
+
+
+  <!-- ================= 二、销售概况 ================= -->
+  <div class="section-head"><div class="num">2</div><h2>二、销售概况</h2>
+    <span id="salesScopeTag" style="margin-left:10px;font-size:11.5px;font-weight:700;color:var(--blue-deep);
+      background:#dbe7ff;padding:3px 12px;border-radius:12px;">当前口径：全部客户</span>
+  </div>
+
+  <div class="sub-head"><div class="bullet"></div><h3 id="salesTrendTitle">整体概况</h3>
+    <button id="salesDrillBackBtn" style="display:none;margin-left:8px;border:1px solid var(--blue);background:#fff;
+      color:var(--blue);font-size:11.5px;font-weight:700;padding:3px 12px;border-radius:14px;cursor:pointer;">× 返回全部客户</button>
+  </div>
+  <div class="grid cols-5" style="margin-bottom:8px;">
+    <div class="card kpi orange"><div class="label">支付GMV</div><div class="value" id="g_gmv">--</div>
+      <div class="row"><span>同比</span><span id="g_gmvYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_gmvMom">--</span></div></div>
+    <div class="card kpi purple"><div class="label">退款额</div><div class="value" id="g_ret">--</div>
+      <div class="row"><span>同比</span><span id="g_retYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_retMom">--</span></div></div>
+    <div class="card kpi purple"><div class="label">净销额</div><div class="value" id="g_net">--</div>
+      <div class="row"><span>同比</span><span id="g_netYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_netMom">--</span></div></div>
+    <div class="card kpi blue"><div class="label">退款率</div><div class="value" id="g_retRate">--</div>
+      <div class="row"><span>同比</span><span id="g_retRateYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_retRateMom">--</span></div></div>
+    <div class="card kpi teal"><div class="label">发货前退款率</div><div class="value" id="g_preRate">--</div>
+      <div class="row"><span>同比</span><span id="g_preRateYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_preRateMom">--</span></div></div>
+  </div>
+  <div class="grid cols-5" style="margin-bottom:14px;">
+    <div class="card kpi orange"><div class="label">支付销量</div><div class="value" id="g_saleQty">--</div>
+      <div class="row"><span>同比</span><span id="g_saleQtyYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_saleQtyMom">--</span></div></div>
+    <div class="card kpi purple"><div class="label">退货量</div><div class="value" id="g_retQty">--</div>
+      <div class="row"><span>同比</span><span id="g_retQtyYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_retQtyMom">--</span></div></div>
+    <div class="card kpi purple"><div class="label">净销量</div><div class="value" id="g_netQty">--</div>
+      <div class="row"><span>同比</span><span id="g_netQtyYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_netQtyMom">--</span></div></div>
+    <div class="card kpi blue"><div class="label">件单价</div><div class="value" id="g_unitPrice">--</div>
+      <div class="row"><span>同比</span><span id="g_unitPriceYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_unitPriceMom">--</span></div>
+      <div class="note" style="color:rgba(255,255,255,.85);">件单价=实发金额/实发数量（已剔除0元商品数量）</div></div>
+    <div class="card kpi teal"><div class="label">发货后退款率</div><div class="value" id="g_postRate">--</div>
+      <div class="row"><span>同比</span><span id="g_postRateYoy">--</span></div>
+      <div class="row"><span>环比</span><span id="g_postRateMom">--</span></div>
+      <div class="note" style="color:rgba(255,255,255,.85);">发货后退款率=实退金额/实发金额</div></div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h4>客户/渠道销售贡献（支付金额占比）</h4>
+      <div class="chart-box sm"><canvas id="platPie"></canvas></div>
+    </div>
+    <div class="card">
+      <h4>客户/渠道销售额对比（点击可下钻到上方"整体概况"卡片）</h4>
+      <div class="bar-list" id="platBars"></div>
+    </div>
+  </div>
+
+
+  <!-- ================= 三、库存概况（快照，不随时间筛选变化）================= -->
+  <div class="section-head"><div class="num">3</div><h2>三、库存概况</h2><span style="margin-left:8px;font-size:11.5px;color:#7c8696;">（库存为静态快照，不随时间筛选变化）</span></div>
+
+  <div class="grid cols-2" style="margin-bottom:14px;">
+    <div class="card"><h4>按大类库存分布（女鞋/箱包/服装/配件/赠品）</h4>
+      <div class="chart-box sm"><canvas id="invCatChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h4 id="invCatTableTitle">各大类库存量</h4>
+      <table>
+        <thead><tr><th>大类</th><th>可用库存（件）</th><th>占比</th></tr></thead>
+        <tbody id="invCatTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid cols-2" style="margin-bottom:14px;">
+    <div class="card"><h4>年季库存总览（5大类合计）</h4>
+      <div class="chart-box sm"><canvas id="invNianjiChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h4 id="invSmallTitle">小类库存总览（点击柱子可下钻到 年季）</h4>
+      <div class="chart-box sm"><canvas id="invSmallChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid cols-2" style="margin-bottom:14px;">
+    <div class="card" id="invSmallDrillCard">
+      <h4 id="invSmallDrillTitle">小类 — 年季明细</h4>
+      <div class="placeholder" id="invSmallDrillPlaceholder">点击左侧"小类库存总览"图表中的某根柱子，查看该小类按年季的库存细分</div>
+      <div class="bar-list" id="invSmallDrillBars" style="display:none;"></div>
+      <button id="invSmallDrillBackBtn" style="display:none;margin-top:10px;border:1px solid var(--blue);background:#fff;
+        color:var(--blue);font-size:11.5px;font-weight:700;padding:4px 14px;border-radius:14px;cursor:pointer;">× 返回全部小类</button>
+    </div>
+    <div class="card" id="invFactoryCard">
+      <h4>生产工厂数量占比（累计净销量+可用库存）</h4>
+      <div class="chan-tabs" id="factoryCatTabs" style="margin:4px 0 10px;">
+        <button data-fcat="女鞋" class="active">女鞋</button>
+        <button data-fcat="服装">服装</button>
+        <button data-fcat="箱包">箱包</button>
+        <button data-fcat="配件">配件</button>
+        <button data-fcat="赠品">赠品</button>
+      </div>
+      <div class="chart-box sm"><canvas id="invFactoryChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid cols-2">
+    <div class="card"><h4>仓库库存分布（Top10，仅5大类范围）</h4>
+      <div class="bar-list" id="whBars"></div>
+    </div>
+    <div class="card">
+      <h4>滞销预警（周转率 &gt; 10周，按库销比从高到低）</h4>
+      <div class="chan-tabs" id="slowMovingTabs" style="margin:4px 0 10px;">
+        <button data-sm="女鞋" class="active">女鞋</button>
+        <button data-sm="服装">服装</button>
+      </div>
+      <div style="overflow-y:auto;max-height:280px;">
+        <table>
+          <thead><tr><th>商品图片</th><th>SKC</th><th>商品名称</th><th>库存</th><th>近4周净销量</th><th>周转率（周）</th></tr></thead>
+          <tbody id="slowMovingTbody"></tbody>
+        </table>
+      </div>
+      <div class="note" style="margin-top:6px;">周转率=可用库存/近4周平均周净销量；仅显示库存&gt;50件且周转率&gt;10周的SKC。库存为全渠道合计，近4周净销量截至数据最新日期。</div>
+    </div>
+  </div>
+
+  <div class="note" style="margin:10px 4px 4px;background:#fff7ea;border:1px solid #ffe2b0;color:#a06a14;padding:8px 12px;border-radius:8px;">
+    备注：库存数据按「商品物料」表的 SKC 做映射，只统计大类为「女鞋/箱包/服装/配件/赠品」的可用库存（共914个已映射SKC，81,380件）。库存数据中还有约20.0万件未能匹配到这5个大类（如温州中转仓的辅料、未在商品物料表登记的SKC等），不计入本模块统计。「年季总览」「小类总览」「生产工厂占比」均按同样的914个已映射SKC统计；小类总览只展示Top15，长尾合并为"其他小类"（点击"其他小类"不支持下钻）。
+  </div>
+
+  <!-- ================= 四、销售排行 ================= -->
+  <div class="section-head"><div class="num">4</div><h2>四、销售排行</h2>
+    <span style="margin-left:10px;font-size:11.5px;font-weight:700;color:var(--blue-deep);
+      background:#dbe7ff;padding:3px 12px;border-radius:12px;">期间口径跟随顶部时间筛选（按月折算）</span>
+  </div>
+  <div class="chan-tabs" id="skuCatTabs">
+    <button data-cat="女鞋" class="active">女鞋</button>
+    <button data-cat="服装">服装</button>
+    <button data-cat="箱包">箱包</button>
+  </div>
+  <div class="chan-tabs" id="skuChanTabs">
+    <button data-chan="all" class="active">全渠道</button>
+    <button data-chan="DL线上">DL线上</button>
+    <button data-chan="DL线下">DL线下</button>
+  </div>
+  <div class="card">
+    <h4 id="skuRankTitle">女鞋 · 全渠道 — SKC销售排行（按期间净销量降序，Top 30）</h4>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th>商品图片</th><th>SKC</th><th>商品名称</th><th>库存</th><th>期间净销量</th><th>累计净销量</th>
+        <th>退货率</th><th>发货前退货率</th><th>发货后退货率</th><th>周转率（库存可售周数）</th>
+      </tr></thead>
+      <tbody id="skuRankTbody"></tbody>
+    </table>
+    </div>
+    <div class="note" style="margin-top:8px;">
+      口径说明：期间净销量按月汇总，跟随顶部时间筛选自动折算覆盖到的月份，并可叠加渠道标签筛选；累计净销量、退货率、发货前退货率、发货后退货率均按<strong>全量累计</strong>口径计算（__MIN_DATE__ 至 __MAX_DATE__），不随顶部时间筛选变化；退货率=累计退货数量/累计销售数量，发货前退货率=(累计销售数量-累计实发数量)/累计销售数量，发货后退货率=累计实退数量/累计实发数量；周转率=当前可用库存/近4周（最近28天，截至__MAX_DATE__）平均周净销量，不随顶部时间筛选变化，但随渠道标签联动。默认按期间净销量从高到低展示前30个SKC。
+    </div>
+  </div>
+
+  <div class="note" style="margin:18px 4px 4px;">
+    已按你提供的店铺-客户映射表重新匹配收入数据，"收入金额达成率"已改名为"指标达成率"，顶部新增日/月/年/自定义时间筛选，下方所有收入与销售模块会随筛选联动刷新（库存为快照，不联动）。
+  </div>
+</div>
+
+<script>
+/* ============ 原始日级聚合数据：[date, 客户, net_qty, net_amt, sale_qty, sale_amt, ret_qty, ret_amt] ============ */
+const RAW = __DAILY_DATA__;
+const RAW_INDEX = {};
+RAW.forEach(r=>{ RAW_INDEX[r[0]+"|"+r[1]] = r; }); // key: "date|customer" -> row
+function saleAmtOf(date,cust){ const r = RAW_INDEX[date+"|"+cust]; return r ? r[5] : 0; }
+function shiftYearStr(dateStr, delta){
+  const [y,m,d] = dateStr.split("-").map(Number);
+  return `${y+delta}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+}
+
+/* ============ 指标.xlsx 月度目标（按自然月1-12月循环套用） ============ */
+const TARGETS = __TARGETS__;
+const ALL_CUSTOMERS = ["京东","天猫","得物","抖音","唯品会","小红书","TX淮海","成都COSMO","南京IST","淮海百盛","TX长沙","DA奉贤金汇","DA中环百联","其他"];
+const CHANNEL_GROUPS = {
+  "DA": ["DA奉贤金汇","DA中环百联"],
+  "DL线上": ["得物","抖音","京东","天猫","唯品会","小红书"],
+  "DL线下": ["成都COSMO","南京IST","TX淮海","淮海百盛","TX长沙"],
+  "其他": ["其他"],
+};
+let currentChannel = "all";
+let drillCustomer = null;
+let salesDrillCustomer = null;
+
+const fmtWan = n => (n/10000).toFixed(1) + "万";
+const fmtWanValue = n => (n/10000).toFixed(1);
+const fmtPct = n => isFinite(n) ? (n*100).toFixed(1) + "%" : "--";
+
+function daysInRange(start,end){
+  const out=[]; let d=new Date(start+"T00:00:00");
+  const e=new Date(end+"T00:00:00");
+  while(d<=e){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0");
+    out.push(`${y}-${m}-${day}`);
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+function monthTarget(cust, ym){ // ym = 'YYYY-MM'
+  const arr = TARGETS[cust]; if(!arr) return 0;
+  const m = parseInt(ym.split("-")[1],10)-1;
+  return arr[m] || 0;
+}
+// 目标按"区间覆盖天数 / 该月总天数"比例折算，便于日/自定义区间也能给出合理目标值
+function daysInMonth(ym){
+  const [y,m] = ym.split("-").map(Number);
+  return new Date(y,m,0).getDate();
+}
+
+if(window.ChartDataLabels){ Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', {display:false}); }
+
+// 自定义插件：占比过小的扇区在外侧加引线标注，避免文字挤在一起
+function makeLeaderLinePlugin(thresholdFn){
+  return {
+    id: "leaderLines",
+    afterDraw(chart){
+      const meta = chart.getDatasetMeta(0);
+      const dataset = chart.data.datasets[0];
+      if(!dataset) return;
+      const total = dataset.data.reduce((a,b)=>a+b,0);
+      if(!total) return;
+      const threshold = thresholdFn();
+      const arcs = meta.data;
+      if(!arcs || !arcs.length) return;
+      const cx = arcs[0].x, cy = arcs[0].y;
+      const small = [];
+      arcs.forEach((arc,i)=>{
+        const val = dataset.data[i];
+        const pct = val/total;
+        if(pct>0 && pct<threshold){
+          const props = arc.getProps(["startAngle","endAngle","outerRadius"], true);
+          const mid = (props.startAngle+props.endAngle)/2;
+          small.push({i, pct, mid, outerRadius: props.outerRadius, label: chart.data.labels[i]});
+        }
+      });
+      if(!small.length) return;
+
+      const rightArr = small.filter(s=>Math.cos(s.mid)>=0);
+      const leftArr = small.filter(s=>Math.cos(s.mid)<0);
+      function layout(arr, side){
+        arr.sort((a,b)=>a.mid-b.mid);
+        const spacing = 15;
+        const startY = cy - ((arr.length-1)*spacing)/2;
+        arr.forEach((s,idx)=>{
+          s.labelY = startY + idx*spacing;
+          s.elbowX = cx + side*(s.outerRadius + 14);
+          s.labelX = cx + side*(s.outerRadius + 42);
+          s.side = side;
+        });
+      }
+      layout(rightArr,1);
+      layout(leftArr,-1);
+
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#b7bfcc";
+      ctx.font = "600 10.5px 'PingFang SC','Microsoft YaHei',sans-serif";
+      ctx.fillStyle = "#5b6573";
+      ctx.textBaseline = "middle";
+      [...rightArr,...leftArr].forEach(s=>{
+        const ex = cx + s.outerRadius*Math.cos(s.mid);
+        const ey = cy + s.outerRadius*Math.sin(s.mid);
+        ctx.beginPath();
+        ctx.moveTo(ex,ey);
+        ctx.lineTo(s.elbowX, s.labelY);
+        ctx.lineTo(s.labelX, s.labelY);
+        ctx.stroke();
+        ctx.textAlign = s.side>0 ? "left" : "right";
+        ctx.fillText(`${(s.pct*100).toFixed(1)}%`, s.labelX + (s.side>0?4:-4), s.labelY);
+      });
+      ctx.restore();
+    }
+  };
+}
+let charts = {};
+function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+
+function getRange(){
+  const mode = document.querySelector("#modeSeg button.active").dataset.mode;
+  let start,end,label;
+  if(mode==="day"){
+    start = end = document.getElementById("dayPicker").value;
+    label = "当前范围：" + start;
+  } else if(mode==="month"){
+    const v = document.getElementById("monthPicker").value; // YYYY-MM
+    start = v+"-01";
+    end = v+"-"+String(daysInMonth(v)).padStart(2,"0");
+    label = "当前范围：" + v;
+  } else if(mode==="year"){
+    const y = document.getElementById("yearPicker").value;
+    if(y==="all"){ start="__MIN_DATE__"; end="__MAX_DATE__"; label="当前范围：全部年份"; }
+    else { start=y+"-01-01"; end = (y==="__MAX_YEAR__" ? "__MAX_DATE__" : y+"-12-31"); label="当前范围："+y+"年"; }
+  } else {
+    start = document.getElementById("customStart").value;
+    end = document.getElementById("customEnd").value;
+    label = "当前范围：" + start + " 至 " + end;
+  }
+  return {mode,start,end,label};
+}
+
+function render(){
+  const {mode,start,end,label} = getRange();
+  document.getElementById("rangeTag").textContent = label;
+
+  const rows = RAW.filter(r => r[0] >= start && r[0] <= end);
+  const activeCustomers = currentChannel==="all" ? ALL_CUSTOMERS : (CHANNEL_GROUPS[currentChannel] || ALL_CUSTOMERS);
+  const revRows = rows.filter(r => activeCustomers.includes(r[1])); // 用于"整体达成/趋势/客户对比"，受渠道标签筛选
+
+  // -------- 汇总（销售概况用，始终为全口径，不受渠道标签影响）--------
+  let netQty=0,netAmt=0,saleQty=0,saleAmt=0,retQty=0,retAmt=0;
+  const byCust = {};
+  ALL_CUSTOMERS.forEach(c=> byCust[c] = {netQty:0,netAmt:0,saleQty:0,saleAmt:0,retQty:0,retAmt:0});
+  rows.forEach(([date,cust,nq,na,sq,sa,rq,ra])=>{
+    netQty+=nq; netAmt+=na; saleQty+=sq; saleAmt+=sa; retQty+=rq; retAmt+=ra;
+    if(!byCust[cust]) byCust[cust] = {netQty:0,netAmt:0,saleQty:0,saleAmt:0,retQty:0,retAmt:0};
+    const b = byCust[cust];
+    b.netQty+=nq; b.netAmt+=na; b.saleQty+=sq; b.saleAmt+=sa; b.retQty+=rq; b.retAmt+=ra;
+  });
+
+  // -------- 收入概况汇总（受渠道标签筛选，同时供"销售概况"联动复用）--------
+  let rNetQty=0,rNetAmt=0,rSaleQty=0,rSaleAmt=0,rRetQty=0,rRetAmt=0;
+  revRows.forEach(([date,cust,nq,na,sq,sa,rq,ra])=>{
+    rNetQty+=nq; rNetAmt+=na; rSaleQty+=sq; rSaleAmt+=sa; rRetQty+=rq; rRetAmt+=ra;
+  });
+  const byCustRev = {};
+  activeCustomers.forEach(c=> byCustRev[c] = byCust[c] || {netQty:0,netAmt:0,saleQty:0,saleAmt:0,retQty:0,retAmt:0});
+
+  // -------- 目标（按区间覆盖天数比例折算，跨月分段累加）--------
+  function rangeTarget(cust){
+    let t=0;
+    const dl = daysInRange(start,end);
+    const byMonth = {};
+    dl.forEach(d=>{ const ym=d.slice(0,7); byMonth[ym]=(byMonth[ym]||0)+1; });
+    Object.entries(byMonth).forEach(([ym,cnt])=>{
+      const full = monthTarget(cust,ym);
+      const dim = daysInMonth(ym);
+      t += full * (cnt/dim);
+    });
+    return t;
+  }
+  let totalTarget = 0;
+  const TARGET_CUSTOMERS = Object.keys(TARGETS).filter(c=>activeCustomers.includes(c));
+  TARGET_CUSTOMERS.forEach(c=> totalTarget += rangeTarget(c));
+
+  // DL线上客户的"指标达成率"按 销售金额(支付金额)×30% 计入实际值，其余客户仍按净销售额计入
+  const DL_ONLINE_SET = new Set(CHANNEL_GROUPS["DL线上"]);
+  function achievementValue(cust){
+    const b = byCust[cust] || {netAmt:0,saleAmt:0};
+    return DL_ONLINE_SET.has(cust) ? b.saleAmt*0.3 : b.netAmt;
+  }
+  let targetActual = 0;
+  TARGET_CUSTOMERS.forEach(c=> targetActual += achievementValue(c));
+  const achRate = totalTarget>0 ? targetActual/totalTarget : NaN;
+  const hasDLOnlineInScope = TARGET_CUSTOMERS.some(c=>DL_ONLINE_SET.has(c));
+
+  // -------- 同比 / 环比（按当前渠道标签口径，净销售额）--------
+  function parseLocalDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+  function fmtLocalDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+  function sumNetAmtForRange(s,e){
+    let t=0;
+    RAW.forEach(r=>{ if(r[0]>=s && r[0]<=e && activeCustomers.includes(r[1])) t+=r[3]; });
+    return t;
+  }
+  const sObj = parseLocalDate(start), eObj = parseLocalDate(end);
+  const spanDays = Math.round((eObj-sObj)/86400000)+1;
+  const momEndObj = new Date(sObj); momEndObj.setDate(momEndObj.getDate()-1);
+  const momStartObj = new Date(momEndObj); momStartObj.setDate(momStartObj.getDate()-(spanDays-1));
+  const momNetAmt = sumNetAmtForRange(fmtLocalDate(momStartObj), fmtLocalDate(momEndObj));
+  const yoyStartObj = new Date(sObj.getFullYear()-1, sObj.getMonth(), sObj.getDate());
+  const yoyEndObj = new Date(eObj.getFullYear()-1, eObj.getMonth(), eObj.getDate());
+  const yoyNetAmt = sumNetAmtForRange(fmtLocalDate(yoyStartObj), fmtLocalDate(yoyEndObj));
+  const momRate = momNetAmt>0 ? (rNetAmt-momNetAmt)/momNetAmt : NaN;
+  const yoyRate = yoyNetAmt>0 ? (rNetAmt-yoyNetAmt)/yoyNetAmt : NaN;
+  function trendSpan(rate){
+    if(!isFinite(rate)) return `<span style="color:#9aa3b2">--</span>`;
+    const up = rate>=0;
+    return `<span style="color:${up?'#00bfa6':'#ff6b6b'}">${up?'▲':'▼'} ${Math.abs(rate*100).toFixed(1)}%</span>`;
+  }
+
+  // -------- 收入概况 KPI（受渠道标签筛选）--------
+  document.getElementById("kpiNetAmt").textContent = fmtWan(rNetAmt);
+  document.getElementById("kpiNetAmtTarget").textContent = fmtWan(totalTarget);
+  document.getElementById("kpiNetAmtRate").textContent = fmtPct(achRate);
+  document.getElementById("kpiNetQty").textContent = rNetQty.toLocaleString();
+  document.getElementById("kpiSaleQty").textContent = rSaleQty.toLocaleString();
+  document.getElementById("kpiRetQty").textContent = rRetQty.toLocaleString();
+  document.getElementById("ringRevenueTxt").textContent = fmtPct(achRate);
+  document.getElementById("kpiYoy").innerHTML = trendSpan(yoyRate);
+  document.getElementById("kpiMom").innerHTML = trendSpan(momRate);
+
+  const noteEl = document.getElementById("dlOnlineNote");
+  if(hasDLOnlineInScope){
+    noteEl.style.display = "block";
+    noteEl.textContent = "* 备注：当前口径包含「DL线上」客户（得物/抖音/京东/天猫/唯品会/小红书），其指标达成率按「销售金额（支付金额）×30%」计入实际值，其余客户仍按净销售额计入；上方「净销售额」「同比」「环比」展示的是真实净销售额，与达成率的计入口径不同。";
+  } else {
+    noteEl.style.display = "none";
+  }
+
+  destroyChart("ring");
+  charts.ring = new Chart(document.getElementById("ringRevenue"),{
+    type:"doughnut",
+    data:{datasets:[{data:[Math.min(achRate*100,100), Math.max(0,100-achRate*100)],
+      backgroundColor:["#ff008c","#eeeae7"],borderWidth:0}]},
+    options:{cutout:"75%",plugins:{legend:{display:false},tooltip:{enabled:false}}}
+  });
+
+  // -------- 趋势图：整体（受渠道标签筛选）或 下钻单客户（受时间筛选）--------
+  const dl = daysInRange(start,end);
+  let trendLabels, trendSeries1, trendSeries2, series1Name, series2Name, isDrill = !!drillCustomer;
+
+  document.getElementById("trendTitle").textContent = isDrill ? `收入趋势 — ${drillCustomer}` : "收入趋势";
+  document.getElementById("drillBackBtn").style.display = isDrill ? "inline-block" : "none";
+
+  if(isDrill){
+    series1Name = "销售金额"; series2Name = "同期销售金额";
+    if(dl.length<=45){
+      trendLabels = dl;
+      trendSeries1 = dl.map(d=> saleAmtOf(d, drillCustomer));
+      trendSeries2 = dl.map(d=> saleAmtOf(shiftYearStr(d,-1), drillCustomer));
+    } else {
+      const monthsSet = {}; dl.forEach(d=>monthsSet[d.slice(0,7)]=true);
+      trendLabels = Object.keys(monthsSet).sort();
+      trendSeries1 = trendLabels.map(ym=>{
+        let t=0; dl.forEach(d=>{ if(d.slice(0,7)===ym) t+=saleAmtOf(d, drillCustomer); });
+        return t;
+      });
+      trendSeries2 = trendLabels.map(ym=>{
+        let t=0; dl.forEach(d=>{ if(d.slice(0,7)===ym) t+=saleAmtOf(shiftYearStr(d,-1), drillCustomer); });
+        return t;
+      });
+    }
+  } else {
+    series1Name = "净销售额"; series2Name = "指标目标";
+    if(dl.length<=45){
+      trendLabels = dl;
+      const map = {}; dl.forEach(d=>map[d]=0);
+      revRows.forEach(([date,cust,nq,na])=>{ map[date]=(map[date]||0)+na; });
+      trendSeries1 = dl.map(d=>map[d]||0);
+      trendSeries2 = dl.map(d=>{
+        const ym = d.slice(0,7);
+        let t=0; TARGET_CUSTOMERS.forEach(c=> t += monthTarget(c,ym)/daysInMonth(ym));
+        return t;
+      });
+    } else {
+      const monthsSet = {};
+      dl.forEach(d=>monthsSet[d.slice(0,7)]=true);
+      trendLabels = Object.keys(monthsSet).sort();
+      trendSeries1 = trendLabels.map(ym=>{
+        let t=0; revRows.forEach(([date,cust,nq,na])=>{ if(date.slice(0,7)===ym) t+=na; });
+        return t;
+      });
+      trendSeries2 = trendLabels.map(ym=>{
+        let t=0; TARGET_CUSTOMERS.forEach(c=> t += monthTarget(c,ym));
+        return t;
+      });
+    }
+  }
+  destroyChart("trend");
+  charts.trend = new Chart(document.getElementById("trendChart"),{
+    data:{labels:trendLabels,
+      datasets: isDrill ? [
+        {type:"bar",label:series1Name,data:trendSeries1,backgroundColor:"#ff4daa",borderRadius:4},
+        {type:"bar",label:series2Name,data:trendSeries2,backgroundColor:"#cfcac5",borderRadius:4},
+      ] : [
+        {type:"bar",label:series1Name,data:trendSeries1,backgroundColor:"#ff4daa",borderRadius:4},
+        {type:"line",label:series2Name,data:trendSeries2,borderColor:"#ff6b00",backgroundColor:"#ff6b00",tension:.3},
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{ticks:{callback:v=>(v/10000).toFixed(1)+"万"}},
+        x:{ticks:{maxRotation:60,minRotation:dl.length>20?60:0}}},
+      plugins:{legend:{position:"top"}}}
+  });
+
+
+  // -------- 客户达成对比表 --------
+  const tbody = document.getElementById("custTableBody");
+  tbody.innerHTML = "";
+
+  // 计算同比区间内每个客户的支付金额与原始净销售额
+  const yoyByCust = {};
+  const yoyNetByCust = {};
+  activeCustomers.forEach(c=>{ yoyByCust[c] = 0; yoyNetByCust[c] = 0; });
+  RAW.forEach(r=>{
+    if(r[0]<fmtLocalDate(yoyStartObj) || r[0]>fmtLocalDate(yoyEndObj)) return;
+    if(yoyByCust[r[1]] !== undefined) yoyByCust[r[1]] += r[5]; // r[5] = saleAmt 销售金额
+    if(yoyNetByCust[r[1]] !== undefined) yoyNetByCust[r[1]] += r[3]; // r[3] = netAmt 原始净销售额
+  });
+
+  const rowsForTable = activeCustomers.map(c=>{
+    const saleAmt = byCust[c]? byCust[c].saleAmt : 0;  // 支付金额
+    const yoySaleAmt = yoyByCust[c] || 0;
+    const isDLOnline = DL_ONLINE_SET.has(c);
+    const netAmt = isDLOnline ? saleAmt*0.3 : (byCust[c]?byCust[c].netAmt:0); // DL线上本期按支付金额×30%
+    const yoyNetAmt = yoyNetByCust[c] || 0; // 同期保持原始净销售额口径
+    const actual = netAmt;
+    const hasTarget = TARGETS[c] !== undefined;
+    const tgt = hasTarget ? rangeTarget(c) : 0;
+    const rate = hasTarget && tgt>0 ? actual/tgt : null;
+    return {c, saleAmt, yoySaleAmt, netAmt, yoyNetAmt, actual, tgt, rate, hasTarget, isDLOnline};
+  }).sort((a,b)=>b.saleAmt-a.saleAmt);
+
+  const customerTotalSaleAmt = rowsForTable.reduce((s,r)=>s+Math.max(r.saleAmt,0),0);
+
+  rowsForTable.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    if(r.c === drillCustomer) tr.style.background = "#eaf0ff";
+    let badge = "";
+    if(r.rate===null){
+      badge = `<span class="badge" style="background:#bcc4d2;">无目标</span>`;
+    } else {
+      const pct = (r.rate*100);
+      const cls = pct>=100 ? "b-good" : pct>=80 ? "b-ok" : pct>=60 ? "b-mid" : "b-high";
+      badge = `<span class="badge ${cls}">${pct.toFixed(1)}%</span>`;
+    }
+    const sharePct = customerTotalSaleAmt>0 ? (Math.max(r.saleAmt,0)/customerTotalSaleAmt*100) : 0;
+    const shareCell = `<span style="font-weight:700;">${sharePct.toFixed(1)}%</span>`;
+    const nameCell = r.isDLOnline ? `${r.c}<span title="本期净销售额按支付金额×30%计入" style="color:#ff6b00;font-weight:700;">*</span>` : r.c;
+    const yoyPct = r.yoySaleAmt>0 ? (r.saleAmt-r.yoySaleAmt)/r.yoySaleAmt : NaN;
+    const netYoyPct = r.yoyNetAmt>0 ? (r.netAmt-r.yoyNetAmt)/r.yoyNetAmt : NaN;
+    const yoyAmtCell = r.yoySaleAmt>0 ? fmtWanValue(r.yoySaleAmt) : `<span style="color:#bcc4d2">--</span>`;
+    const yoyPctCell = isFinite(yoyPct)
+      ? `<span style="color:${yoyPct>=0?'#00bfa6':'#ff4d4f'};font-weight:700;">${yoyPct>=0?'▲':'▼'} ${Math.abs(yoyPct*100).toFixed(1)}%</span>`
+      : `<span style="color:#bcc4d2">--</span>`;
+    const yoyNetAmtCell = r.yoyNetAmt!==0 ? fmtWanValue(r.yoyNetAmt) : `<span style="color:#bcc4d2">--</span>`;
+    const netYoyPctCell = isFinite(netYoyPct)
+      ? `<span style="color:${netYoyPct>=0?'#00bfa6':'#ff4d4f'};font-weight:700;">${netYoyPct>=0?'▲':'▼'} ${Math.abs(netYoyPct*100).toFixed(1)}%</span>`
+      : `<span style="color:#bcc4d2">--</span>`;
+    tr.innerHTML = `<td>${nameCell}</td><td>${fmtWanValue(r.saleAmt)}</td><td>${yoyAmtCell}</td><td>${yoyPctCell}</td><td>${fmtWanValue(r.netAmt)}</td><td>${yoyNetAmtCell}</td><td>${netYoyPctCell}</td><td>${r.hasTarget?fmtWanValue(r.tgt):"--"}</td><td>${badge}</td><td>${shareCell}</td>`;
+    tr.addEventListener("click", ()=>{ drillCustomer = r.c; render(); });
+    tbody.appendChild(tr);
+  });
+
+  // -------- 销售概况：整体概况10卡片（与"整体达成"渠道标签联动，并支持点击客户下钻）--------
+  function aggMetrics(s,e,custList){
+    const set = new Set(custList);
+    let netQty=0,netAmt=0,saleQty=0,saleAmt=0,retQty=0,retAmt=0,shipQty=0,shipAmt=0,prQty=0,prAmt=0,zeroNetQty=0,zeroSaleQty=0,zeroShipQty=0;
+    RAW.forEach(r=>{
+      if(r[0]<s || r[0]>e) return;
+      if(!set.has(r[1])) return;
+      netQty+=r[2]; netAmt+=r[3]; saleQty+=r[4]; saleAmt+=r[5]; retQty+=r[6]; retAmt+=r[7];
+      shipQty+=r[8]; shipAmt+=r[9]; prQty+=r[10]; prAmt+=r[11]; zeroNetQty+=r[12]||0; zeroSaleQty+=r[13]||0; zeroShipQty+=r[14]||0;
+    });
+    return {netQty,netAmt,saleQty,saleAmt,retQty,retAmt,shipQty,shipAmt,prQty,prAmt,zeroNetQty,zeroSaleQty,zeroShipQty};
+  }
+  const salesScope = salesDrillCustomer ? [salesDrillCustomer] : activeCustomers;
+  const gCur = aggMetrics(start,end,salesScope);
+  const gMom = aggMetrics(fmtLocalDate(momStartObj),fmtLocalDate(momEndObj),salesScope);
+  const gYoy = aggMetrics(fmtLocalDate(yoyStartObj),fmtLocalDate(yoyEndObj),salesScope);
+
+  function growth(cur,prev){ return prev>0 ? (cur-prev)/prev : NaN; }
+  function rateOf(m){
+    const paidShipQty = m.shipQty - m.zeroShipQty; // 件单价计算时去除0元商品（实发金额为0但有实发数量）的数量
+    return {
+      retRate: m.saleAmt? m.retAmt/m.saleAmt : NaN,
+      preRate: m.saleAmt? (m.saleAmt-m.shipAmt)/m.saleAmt : NaN,
+      postRate: m.shipAmt? m.prAmt/m.shipAmt : NaN,
+      unitPrice: paidShipQty>0 ? m.shipAmt/paidShipQty : NaN,
+    };
+  }
+  const curRate=rateOf(gCur), momRateObj=rateOf(gMom), yoyRateObj=rateOf(gYoy);
+
+  document.getElementById("salesTrendTitle").textContent = salesDrillCustomer ? `整体概况 — ${salesDrillCustomer}` : "整体概况";
+  document.getElementById("salesDrillBackBtn").style.display = salesDrillCustomer ? "inline-block" : "none";
+
+  document.getElementById("g_gmv").textContent = fmtWan(gCur.saleAmt);
+  document.getElementById("g_gmvYoy").innerHTML = trendSpan(growth(gCur.saleAmt,gYoy.saleAmt));
+  document.getElementById("g_gmvMom").innerHTML = trendSpan(growth(gCur.saleAmt,gMom.saleAmt));
+
+  document.getElementById("g_ret").textContent = fmtWan(gCur.retAmt);
+  document.getElementById("g_retYoy").innerHTML = trendSpan(growth(gCur.retAmt,gYoy.retAmt));
+  document.getElementById("g_retMom").innerHTML = trendSpan(growth(gCur.retAmt,gMom.retAmt));
+
+  document.getElementById("g_net").textContent = fmtWan(gCur.netAmt);
+  document.getElementById("g_netYoy").innerHTML = trendSpan(growth(gCur.netAmt,gYoy.netAmt));
+  document.getElementById("g_netMom").innerHTML = trendSpan(growth(gCur.netAmt,gMom.netAmt));
+
+  document.getElementById("g_retRate").textContent = fmtPct(curRate.retRate);
+  document.getElementById("g_retRateYoy").innerHTML = trendSpan(curRate.retRate-yoyRateObj.retRate);
+  document.getElementById("g_retRateMom").innerHTML = trendSpan(curRate.retRate-momRateObj.retRate);
+
+  document.getElementById("g_preRate").textContent = fmtPct(curRate.preRate);
+  document.getElementById("g_preRateYoy").innerHTML = trendSpan(curRate.preRate-yoyRateObj.preRate);
+  document.getElementById("g_preRateMom").innerHTML = trendSpan(curRate.preRate-momRateObj.preRate);
+
+  document.getElementById("g_saleQty").textContent = gCur.saleQty.toLocaleString();
+  document.getElementById("g_saleQtyYoy").innerHTML = trendSpan(growth(gCur.saleQty,gYoy.saleQty));
+  document.getElementById("g_saleQtyMom").innerHTML = trendSpan(growth(gCur.saleQty,gMom.saleQty));
+
+  document.getElementById("g_retQty").textContent = gCur.retQty.toLocaleString();
+  document.getElementById("g_retQtyYoy").innerHTML = trendSpan(growth(gCur.retQty,gYoy.retQty));
+  document.getElementById("g_retQtyMom").innerHTML = trendSpan(growth(gCur.retQty,gMom.retQty));
+
+  document.getElementById("g_netQty").textContent = gCur.netQty.toLocaleString();
+  document.getElementById("g_netQtyYoy").innerHTML = trendSpan(growth(gCur.netQty,gYoy.netQty));
+  document.getElementById("g_netQtyMom").innerHTML = trendSpan(growth(gCur.netQty,gMom.netQty));
+
+  document.getElementById("g_unitPrice").textContent = isFinite(curRate.unitPrice) ? curRate.unitPrice.toFixed(1) : "--";
+  document.getElementById("g_unitPriceYoy").innerHTML = trendSpan(growth(curRate.unitPrice,yoyRateObj.unitPrice));
+  document.getElementById("g_unitPriceMom").innerHTML = trendSpan(growth(curRate.unitPrice,momRateObj.unitPrice));
+
+  document.getElementById("g_postRate").textContent = fmtPct(curRate.postRate);
+  document.getElementById("g_postRateYoy").innerHTML = trendSpan(curRate.postRate-yoyRateObj.postRate);
+  document.getElementById("g_postRateMom").innerHTML = trendSpan(curRate.postRate-momRateObj.postRate);
+
+  document.getElementById("salesScopeTag").textContent = salesDrillCustomer
+    ? `当前口径：${salesDrillCustomer}`
+    : (currentChannel==="all" ? "当前口径：全部客户" : `当前口径：${currentChannel}`);
+
+  destroyChart("platPie");
+  const platData = activeCustomers.map(c=>({c, v: byCustRev[c]?byCustRev[c].saleAmt:0})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+  const platTotal = platData.reduce((s,p)=>s+p.v,0);
+  const SMALL_PCT = 0.05; // 占比低于5%的扇区改用外侧引线标注
+  charts.platPie = new Chart(document.getElementById("platPie"),{
+    type:"doughnut",
+    data:{labels:platData.map(p=>p.c), datasets:[{data:platData.map(p=>p.v),
+      backgroundColor:["#ff008c","#00bfa6","#ff6b00","#7b2cff","#ff4daa","#ff6f91","#a0a0a0","#69f2df","#ffd166","#06d6a0","#ef476f","#118ab2"]}]},
+    plugins:[makeLeaderLinePlugin(()=>SMALL_PCT)],
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{left:55,right:55,top:14,bottom:14}},
+      plugins:{
+        legend:{position:"right",labels:{boxWidth:10,font:{size:10}}},
+        datalabels:{
+          display:true,
+          color:"#fff",
+          font:{size:11,weight:"700"},
+          formatter:(v)=>{
+            if(platTotal<=0) return "";
+            const pct = v/platTotal;
+            return pct>=SMALL_PCT ? (pct*100).toFixed(1)+"%" : "";
+          },
+          textShadowBlur:3, textShadowColor:"rgba(0,0,0,.35)",
+        }
+      }}
+  });
+
+  const platBarsEl = document.getElementById("platBars");
+  platBarsEl.innerHTML = "";
+  const platMax = Math.max(...platData.map(p=>p.v),1);
+  platData.forEach(p=>{
+    const row=document.createElement("div"); row.className="bar-row";
+    row.style.cursor = "pointer";
+    if(p.c === salesDrillCustomer) row.style.background = "#eaf0ff";
+    row.innerHTML=`<div class="name">${p.c}</div><div class="track"><div class="fill" style="width:${(p.v/platMax*100).toFixed(1)}%"></div></div><div class="val">${fmtWan(p.v)}</div>`;
+    row.addEventListener("click", ()=>{ salesDrillCustomer = p.c; render(); });
+    platBarsEl.appendChild(row);
+  });
+
+  renderSkuRanking(start,end);
+  renderFactoryChart(start,end);
+}
+
+/* ============ 四、销售排行：SKC × 月 × 渠道 聚合数据（限女鞋/服装/箱包）============ */
+// 每行: [月份YYYY-MM, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
+const SKU_MONTH_CHAN = __SKU_MONTH_CHAN__;
+// 近4周(最近28天，截至__MAX_DATE__)逐日数据，仅用于周转率计算: [日期, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
+const SKU_LAST28_CHAN = __SKU_LAST28_CHAN__;
+const SKC_CAT = __SKC_CAT__;      // SKC -> 大类
+const SKC_NAME = __SKC_NAME__;    // SKC -> 商品名称
+const SKC_IMAGE = __SKC_IMAGE__;  // SKC -> 网页商品图片相对 URL
+const SKC_INV_CHAN = __SKC_INV_CHAN__;  // SKC -> {渠道 -> 库存量}，渠道值为 DA/DL线上/DL线下/all(无明确归属仓库)
+const SKC_FACTORY = __SKC_FACTORY__;   // SKC -> 生产工厂名称（5大类范围）
+// 按当前渠道标签取对应库存：全渠道=所有渠道求和；其他/DA/DL线上/DL线下=对应渠道库存+通用仓(all)
+function getSkcInv(skc){
+  const d = SKC_INV_CHAN[skc];
+  if(!d) return 0;
+  if(skuChannel==="all") return Object.values(d).reduce((s,v)=>s+v,0);
+  return d[skuChannel] || 0;  // 选定渠道时只取该渠道专属仓库，通用仓(all)不叠加
+}
+
+let skuCategory = "女鞋";
+let skuChannel = "all";
+const SKU_CHANNEL_GROUPS = {
+  "DA": ["DA奉贤金汇","DA中环百联"],
+  "DL线上": ["得物","抖音","京东","天猫","唯品会","小红书"],
+  "DL线下": ["成都COSMO","南京IST","TX淮海","淮海百盛","TX长沙"],
+  "其他": ["其他"],
+};
+function skuChanMatch(chan){
+  if(skuChannel==="all") return true;
+  return chan===skuChannel; // SKU_MONTH_CHAN/SKU_LAST28_CHAN里的渠道字段已经是分组后的DA/DL线上/DL线下/其他
+}
+
+function renderSkuRanking(start,end){
+  // 把当前选中的日期区间折算成覆盖到的月份集合（SKU期间/累计数据只有月粒度）
+  const dl = daysInRange(start,end);
+  const periodMonths = new Set(dl.map(d=>d.slice(0,7)));
+
+  const periodAgg = {}; // skc -> {netQty,saleQty,retQty,shipQty,prQty}
+  const cumAgg = {};
+  SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty,saleQty,retQty,shipQty,prQty])=>{
+    if(SKC_CAT[skc] !== skuCategory) return;
+    if(!skuChanMatch(chan)) return;
+    if(!cumAgg[skc]) cumAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
+    const c = cumAgg[skc];
+    c.netQty+=netQty; c.saleQty+=saleQty; c.retQty+=retQty; c.shipQty+=shipQty; c.prQty+=prQty;
+    if(periodMonths.has(ym)){
+      if(!periodAgg[skc]) periodAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
+      const p = periodAgg[skc];
+      p.netQty+=netQty; p.saleQty+=saleQty; p.retQty+=retQty; p.shipQty+=shipQty; p.prQty+=prQty;
+    }
+  });
+
+  // 近4周净销量（用于周转率，固定取最近28天，不随顶部时间筛选变化，但跟渠道标签联动）
+  const last28NetQty = {};
+  SKU_LAST28_CHAN.forEach(([date,skc,chan,netQty])=>{
+    if(SKC_CAT[skc] !== skuCategory) return;
+    if(!skuChanMatch(chan)) return;
+    last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
+  });
+
+  const skcSet = new Set(Object.keys(cumAgg));
+  Object.keys(SKC_CAT).forEach(skc=>{ if(SKC_CAT[skc]===skuCategory) skcSet.add(skc); });
+
+  const rows = [...skcSet].map(skc=>{
+    const p = periodAgg[skc] || {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
+    const c = cumAgg[skc] || {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
+    const inv = getSkcInv(skc);
+    const retRate = c.saleQty? c.retQty/c.saleQty : NaN;
+    const preRate = c.saleQty? (c.saleQty-c.shipQty)/c.saleQty : NaN;
+    const postRate = c.shipQty? c.prQty/c.shipQty : NaN;
+    const avgWeeklyNetQty = (last28NetQty[skc]||0)/4;
+    const turnoverWeeks = avgWeeklyNetQty>0 ? inv/avgWeeklyNetQty : NaN;
+    return {skc, name: SKC_NAME[skc]||"--", inv, periodNetQty:p.netQty, cumNetQty:c.netQty, retRate, preRate, postRate, turnoverWeeks};
+  }).sort((a,b)=> b.periodNetQty - a.periodNetQty).slice(0,30);
+
+  const chanLabel = skuChannel==="all" ? "全渠道" : skuChannel;
+  document.getElementById("skuRankTitle").textContent = `${skuCategory} · ${chanLabel} — SKC销售排行（按期间净销量降序，Top 30）`;
+  const tbody = document.getElementById("skuRankTbody");
+  tbody.innerHTML = "";
+  rows.forEach(r=>{
+    const tr = document.createElement("tr");
+    const turnoverText = isFinite(r.turnoverWeeks) ? r.turnoverWeeks.toFixed(1)+"周" : "--";
+    const imageUrl = SKC_IMAGE[r.skc];
+    const imageCell = imageUrl
+      ? `<img class="product-thumb" src="${imageUrl}" alt="${r.skc}" loading="lazy" onerror="this.outerHTML='<span class=&quot;product-no-image&quot;>图片<br>未找到</span>'">`
+      : `<span class="product-no-image">暂无<br>图片</span>`;
+    tr.innerHTML = `<td class="product-image-cell">${imageCell}</td><td>${r.skc}</td><td>${r.name}</td><td>${r.inv.toLocaleString()}</td>
+      <td>${r.periodNetQty.toLocaleString()}</td><td>${r.cumNetQty.toLocaleString()}</td>
+      <td>${fmtPct(r.retRate)}</td><td>${fmtPct(r.preRate)}</td><td>${fmtPct(r.postRate)}</td>
+      <td>${turnoverText}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+document.querySelectorAll("#skuCatTabs button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#skuCatTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    skuCategory = btn.dataset.cat;
+    const {start,end} = getRange();
+    renderSkuRanking(start,end);
+  });
+});
+document.querySelectorAll("#skuChanTabs button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#skuChanTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    skuChannel = btn.dataset.chan;
+    const {start,end} = getRange();
+    renderSkuRanking(start,end);
+  });
+});
+
+
+const CAT_ORDER = ["女鞋","服装","箱包","配件","赠品"];
+const INV_CATEGORIES = __INV_CATEGORIES__;
+/* ============ 库存数据（静态快照，已按「商品物料」SKC映射，仅保留女鞋/箱包/服装/配件/赠品5大类）============ */
+const warehouses = __WH_BARS__;
+const whMax = Math.max(...Object.values(warehouses));
+const whBarsEl = document.getElementById("whBars");
+Object.entries(warehouses).forEach(([name,v])=>{
+  const row=document.createElement("div"); row.className="bar-row";
+  row.innerHTML=`<div class="name" style="width:150px">${name}</div><div class="track"><div class="fill" style="width:${(v/whMax*100).toFixed(1)}%;background:linear-gradient(90deg,#69f2df,#00bfa6)"></div></div><div class="val">${v.toLocaleString()}件</div>`;
+  whBarsEl.appendChild(row);
+});
+
+const invCatTotal = Object.values(INV_CATEGORIES).reduce((a,b)=>a+b,0);
+new Chart(document.getElementById("invCatChart"),{
+  type:"doughnut",
+  data:{labels:CAT_ORDER, datasets:[{data:CAT_ORDER.map(c=>INV_CATEGORIES[c]),
+    backgroundColor:["#ff008c","#00bfa6","#ff6b00","#7b2cff","#69f2df"]}]},
+  plugins:[makeLeaderLinePlugin(()=>0.05)],
+  options:{responsive:true,maintainAspectRatio:false,
+    layout:{padding:{left:50,right:50,top:14,bottom:14}},
+    plugins:{
+      legend:{position:"right",labels:{boxWidth:10,font:{size:10}}},
+      datalabels:{display:true,color:"#fff",font:{size:11,weight:"700"},
+        formatter:(v)=>{ const pct=v/invCatTotal; return pct>=0.05?(pct*100).toFixed(1)+"%":""; },
+        textShadowBlur:3, textShadowColor:"rgba(0,0,0,.35)"}
+    }}
+});
+const invCatTbody = document.getElementById("invCatTableBody");
+CAT_ORDER.forEach(name=>{
+  const v = INV_CATEGORIES[name] || 0;
+  const tr = document.createElement("tr");
+  const pct = (v/invCatTotal*100).toFixed(1);
+  tr.innerHTML = `<td>${name}</td><td>${v.toLocaleString()}</td><td>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div style="flex:1;background:#eef1f8;border-radius:4px;height:8px;min-width:40px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#69f2df,#00bfa6);border-radius:4px;"></div>
+      </div>
+      <span style="width:38px;flex-shrink:0;">${pct}%</span>
+    </div></td>`;
+  invCatTbody.appendChild(tr);
+});
+
+/* ============ 年季库存总览（5大类合计，按年份+春夏秋冬固定排序）============ */
+const SEASON_ORDER = {"春":0,"夏":1,"秋":2,"冬":3};
+const INV_NIANJI_RAW = __INV_NIANJI__;
+const INV_NIANJI = [...INV_NIANJI_RAW].sort((a,b)=>{
+  const ya = a.label.slice(0,2), sa = a.label.slice(2);
+  const yb = b.label.slice(0,2), sb = b.label.slice(2);
+  if(ya !== yb) return ya.localeCompare(yb);
+  return (SEASON_ORDER[sa]??99) - (SEASON_ORDER[sb]??99);
+});
+new Chart(document.getElementById("invNianjiChart"),{
+  type:"bar",
+  data:{labels:INV_NIANJI.map(it=>it.label), datasets:[{label:"库存量",data:INV_NIANJI.map(it=>it.v),
+    backgroundColor:"#ff4daa",borderRadius:4}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    scales:{x:{ticks:{maxRotation:60,minRotation:60,font:{size:9.5}}},y:{ticks:{font:{size:10}}}},
+    plugins:{legend:{display:false}}}
+});
+
+/* ============ 小类库存总览（Top15+其他，点击柱子下钻到 年季）============ */
+const INV_SMALL = __INV_SMALL__;
+const INV_SMALL_DRILL = __INV_SMALL_DRILL__;
+const invSmallChart = new Chart(document.getElementById("invSmallChart"),{
+  type:"bar",
+  data:{labels:INV_SMALL.map(it=>it.label), datasets:[{label:"库存量",data:INV_SMALL.map(it=>it.v),
+    backgroundColor:"#7b2cff",borderRadius:4}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    onClick:(evt,elements)=>{
+      if(!elements.length) return;
+      const idx = elements[0].index;
+      const label = INV_SMALL[idx].label;
+      if(label==="其他小类") return; // 长尾合并项不支持下钻
+      showInvSmallDrill(label);
+    },
+    onHover:(evt,elements)=>{ evt.native.target.style.cursor = elements.length ? "pointer" : "default"; },
+    scales:{x:{ticks:{maxRotation:60,minRotation:60,font:{size:9}}},y:{ticks:{font:{size:10}}}},
+    plugins:{legend:{display:false}}}
+});
+
+function showInvSmallDrill(small){
+  const items = INV_SMALL_DRILL[small] || [];
+  document.getElementById("invSmallDrillTitle").textContent = `${small} — 年季明细`;
+  document.getElementById("invSmallDrillPlaceholder").style.display = "none";
+  const barsEl = document.getElementById("invSmallDrillBars");
+  barsEl.style.display = "block";
+  barsEl.innerHTML = "";
+  const max = Math.max(...items.map(it=>it.v), 1);
+  items.forEach(it=>{
+    const row = document.createElement("div"); row.className = "bar-row";
+    row.innerHTML = `<div class="name" style="width:90px">${it.label}</div><div class="track"><div class="fill" style="width:${(it.v/max*100).toFixed(1)}%;background:linear-gradient(90deg,#7b2cff,#ff4daa)"></div></div><div class="val">${it.v.toLocaleString()}件</div>`;
+    barsEl.appendChild(row);
+  });
+  document.getElementById("invSmallDrillBackBtn").style.display = "inline-block";
+}
+document.getElementById("invSmallDrillBackBtn").addEventListener("click", ()=>{
+  document.getElementById("invSmallDrillTitle").textContent = "小类 — 年季明细";
+  document.getElementById("invSmallDrillPlaceholder").style.display = "flex";
+  document.getElementById("invSmallDrillBars").style.display = "none";
+  document.getElementById("invSmallDrillBackBtn").style.display = "none";
+});
+
+/* ============ 生产工厂数量占比（期间净销量+可用库存，随大类标签+顶部时间筛选联动）============ */
+let factoryCat = "女鞋";
+
+function renderFactoryChart(start, end){
+  const dl = daysInRange(start, end);
+  const periodMonths = new Set(dl.map(d=>d.slice(0,7)));
+
+  // 期间净销量（不区分渠道，按全渠道汇总）
+  const skcPeriodNetQty = {};
+  SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty])=>{
+    if(SKC_CAT[skc] !== factoryCat) return;
+    if(!periodMonths.has(ym)) return;
+    skcPeriodNetQty[skc] = (skcPeriodNetQty[skc]||0) + netQty;
+  });
+
+  // 可用库存（全渠道合计，静态快照）
+  function totalInv(skc){
+    const d = SKC_INV_CHAN[skc];
+    if(!d) return 0;
+    return Object.values(d).reduce((s,v)=>s+v,0);
+  }
+
+  // 按工厂汇总：期间净销量 + 可用库存
+  const factoryQty = {};
+  const allSkcs = new Set([...Object.keys(SKC_CAT).filter(k=>SKC_CAT[k]===factoryCat)]);
+  allSkcs.forEach(skc=>{
+    const factory = SKC_FACTORY[skc] || "未知工厂";
+    const qty = (skcPeriodNetQty[skc]||0) + totalInv(skc);
+    if(qty>0) factoryQty[factory] = (factoryQty[factory]||0) + qty;
+  });
+
+  // top8 + 其他
+  const sorted = Object.entries(factoryQty).sort((a,b)=>b[1]-a[1]);
+  const top = sorted.slice(0,8);
+  const restSum = sorted.slice(8).reduce((s,[,v])=>s+v,0);
+  const data = top.map(([label,v])=>({label,v}));
+  if(restSum>0) data.push({label:"其他工厂",v:restSum});
+  const total = data.reduce((s,f)=>s+f.v,0);
+
+  if(charts.factory){ charts.factory.destroy(); delete charts.factory; }
+  charts.factory = new Chart(document.getElementById("invFactoryChart"),{
+    type:"doughnut",
+    data:{labels:data.map(f=>f.label), datasets:[{data:data.map(f=>f.v),
+      backgroundColor:["#ff008c","#00bfa6","#ff6b00","#7b2cff","#ff4daa","#ff6f91","#06d6a0","#ffd166","#a0a0a0"]}]},
+    plugins:[makeLeaderLinePlugin(()=>0.05)],
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{left:50,right:50,top:14,bottom:14}},
+      plugins:{
+        legend:{position:"right",labels:{boxWidth:10,font:{size:9.5}}},
+        datalabels:{display:true,color:"#fff",font:{size:10.5,weight:"700"},
+          formatter:(v)=>{ const pct=v/total; return pct>=0.05?(pct*100).toFixed(1)+"%":""; },
+          textShadowBlur:3, textShadowColor:"rgba(0,0,0,.35)"}
+      }}
+  });
+}
+
+document.querySelectorAll("#factoryCatTabs button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#factoryCatTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    factoryCat = btn.dataset.fcat;
+    const {start,end} = getRange();
+    renderFactoryChart(start,end);
+  });
+});
+
+/* ============ 滞销预警（周转率>10周，按女鞋/服装切换）============ */
+let slowMovingCat = "女鞋";
+
+function renderSlowMoving(){
+  // 近4周全渠道净销量（SKU_LAST28_CHAN已按SKC×渠道×日期存储）
+  const last28NetQty = {};
+  SKU_LAST28_CHAN.forEach(([date,skc,chan,netQty])=>{
+    if(SKC_CAT[skc] !== slowMovingCat) return;
+    last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
+  });
+
+  // 全渠道库存
+  const rows = [];
+  Object.keys(SKC_CAT).forEach(skc=>{
+    if(SKC_CAT[skc] !== slowMovingCat) return;
+    const d = SKC_INV_CHAN[skc];
+    const inv = d ? Object.values(d).reduce((s,v)=>s+v,0) : 0;
+    if(inv <= 50) return;  // 库存≤50件不计入预警
+    const netQty28 = last28NetQty[skc] || 0;
+    const avgWeekly = netQty28 / 4;
+    const turnover = avgWeekly > 0 ? inv / avgWeekly : Infinity;
+    if(turnover > 10){
+      rows.push({skc, name: SKC_NAME[skc]||"--", inv, netQty28, turnover});
+    }
+  });
+
+  rows.sort((a,b)=> b.turnover - a.turnover);
+
+  const tbody = document.getElementById("slowMovingTbody");
+  tbody.innerHTML = "";
+  if(rows.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9aa3b2;padding:16px;">暂无周转率>10周的SKC</td></tr>`;
+    return;
+  }
+  rows.forEach(r=>{
+    const tr = document.createElement("tr");
+    const turnoverText = isFinite(r.turnover) ? r.turnover.toFixed(1)+"周" : "∞（近4周无销售）";
+    const turnoverColor = r.turnover > 20 ? "#ff4d4f" : "#ff6b00";
+    const imageUrl = SKC_IMAGE[r.skc];
+    const imageCell = imageUrl
+      ? `<img class="product-thumb" src="${imageUrl}" alt="${r.skc}" loading="lazy" onerror="this.outerHTML='<span class=&quot;product-no-image&quot;>图片<br>未找到</span>'">`
+      : `<span class="product-no-image">暂无<br>图片</span>`;
+    tr.innerHTML = `<td class="product-image-cell">${imageCell}</td><td>${r.skc}</td><td>${r.name}</td><td>${r.inv.toLocaleString()}</td>
+      <td>${r.netQty28.toLocaleString()}</td>
+      <td style="font-weight:700;color:${turnoverColor}">${turnoverText}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+document.querySelectorAll("#slowMovingTabs button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#slowMovingTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    slowMovingCat = btn.dataset.sm;
+    renderSlowMoving();
+  });
+});
+
+renderSlowMoving();
+
+/* ============ 筛选交互 ============ */
+const ctrlMap = {day:"ctrlDay",month:"ctrlMonth",year:"ctrlYear",custom:"ctrlCustom"};
+document.querySelectorAll("#modeSeg button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#modeSeg button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    Object.values(ctrlMap).forEach(id=>document.getElementById(id).style.display="none");
+    document.getElementById(ctrlMap[btn.dataset.mode]).style.display="flex";
+  });
+});
+document.getElementById("applyBtn").addEventListener("click", render);
+
+document.querySelectorAll("#chanTabs button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#chanTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    currentChannel = btn.dataset.chan;
+    drillCustomer = null;
+    salesDrillCustomer = null;
+    render();
+  });
+});
+document.getElementById("drillBackBtn").addEventListener("click", ()=>{ drillCustomer = null; render(); });
+document.getElementById("salesDrillBackBtn").addEventListener("click", ()=>{ salesDrillCustomer = null; render(); });
+
+render();
+</script>
+</body>
+</html>
