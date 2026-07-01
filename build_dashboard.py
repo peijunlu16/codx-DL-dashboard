@@ -104,6 +104,7 @@ for r in wb["Sheet1"].iter_rows(min_row=2, values_only=True):
 skc_cat  = {k: v["cat"]     for k, v in skc_meta.items()}
 skc_name = {k: v["name"]    for k, v in skc_meta.items() if v["cat"] in TARGET_CATS_3}
 skc_factory = {k: v["factory"] for k, v in skc_meta.items()}
+skc_nianji = {k: v["nianji"] for k, v in skc_meta.items()}
 print(f"    商品物料 SKC 数：{len(skc_meta)}")
 
 # 销售排行商品图：复制到看板目录，HTML 使用网页可访问的相对 URL。
@@ -149,6 +150,8 @@ inv_nianji = defaultdict(int)  # nianji -> qty
 inv_small  = defaultdict(int)  # small -> qty
 inv_small_drill = defaultdict(lambda: defaultdict(int))  # small -> nianji -> qty
 inv_wh     = defaultdict(int)  # wh -> qty (5大类)
+inv_wh_cat = defaultdict(lambda: defaultdict(int))  # cat -> wh -> qty
+inv_cat_nianji = defaultdict(lambda: defaultdict(int))  # cat -> nianji -> qty
 # SKC×渠道 库存（3大类）
 skc_inv_chan = defaultdict(lambda: defaultdict(int))  # skc -> chan -> qty
 excluded_payu_rows = 0
@@ -170,6 +173,8 @@ for r in ws.iter_rows(min_row=2, values_only=True):
     inv_small[meta["small"]] += qty
     inv_small_drill[meta["small"]][meta["nianji"]] += qty
     inv_wh[wh] += qty
+    inv_wh_cat[cat][wh] += qty
+    inv_cat_nianji[cat][meta["nianji"]] += qty
     if cat in TARGET_CATS_3:
         chan = WH_TO_CHAN.get(wh, "all")
         skc_inv_chan[skc][chan] += qty
@@ -177,6 +182,7 @@ for r in ws.iter_rows(min_row=2, values_only=True):
 # 序列化
 CAT_ORDER = ["女鞋","服装","箱包","配件","赠品"]
 inv_cat_json = {c: inv_cat.get(c, 0) for c in CAT_ORDER}
+inv_cat_nianji_json = {c: dict(inv_cat_nianji[c]) for c in CAT_ORDER}
 
 nianji_sorted = sorted(inv_nianji.items(), key=lambda x: (x[0][:2], SEASON_ORDER.get(x[0][2:], 99)))
 inv_nianji_json = [{"label": k, "v": v} for k, v in nianji_sorted]
@@ -239,7 +245,7 @@ for r in ws.iter_rows(min_row=2, values_only=True):
 
     # sku_day_chan (销售排行 + 工厂图表)
     skc = r[3]
-    if skc in skc_meta and skc_meta[skc]["cat"] in TARGET_CATS_3:
+    if skc in skc_meta and skc_meta[skc]["cat"] in TARGET_CATS_5:
         chan = chan_of(cust)
         key2 = (date, skc, chan); b = sku_day_chan[key2]
         b[0]+=r[6] or 0; b[1]+=r[8] or 0; b[2]+=r[10] or 0
@@ -277,7 +283,10 @@ print(f"    近4周区间：{last28_start} ~ {max_date}，记录数：{len(sku_l
 # =========================================================
 # 6. 库存概况模块更新仓库总览HTML（动态写入最新的仓库排名）
 # =========================================================
-wh_bars_data = sorted(inv_wh.items(), key=lambda x: -x[1])[:10]
+wh_bars_by_cat = {
+    cat: {wh: qty for wh, qty in sorted(inv_wh_cat[cat].items(), key=lambda x: -x[1])[:10]}
+    for cat in CAT_ORDER
+}
 
 # =========================================================
 # 7. 指标达成目标（来自指标.xlsx）
@@ -324,6 +333,8 @@ def inject(content, placeholder, data):
 # 替换动态最新日期文字
 content = content.replace("__MAX_DATE__", max_date)
 content = content.replace("__MIN_DATE__", min_date)
+content = content.replace("__MAX_MONTH__", max_date[:7])
+content = content.replace("__MIN_MONTH__", min_date[:7])
 content = content.replace("__LAST28_START__", last28_start)
 content = content.replace("__MAX_YEAR__", max_date[:4])
 
@@ -339,10 +350,11 @@ content = inject(content, "__SKC_NAME__",          skc_name)
 content = inject(content, "__SKC_IMAGE__",         skc_image)
 content = inject(content, "__SKC_INV_CHAN__",      skc_inv_chan_json)
 content = inject(content, "__SKC_FACTORY__",       skc_factory)
+content = inject(content, "__SKC_NIANJI__",       skc_nianji)
+content = inject(content, "__INV_CAT_NIANJI__",   inv_cat_nianji_json)
 
-# 仓库分布条形图数据（直接替换JS中的静态对象）
-wh_js = json.dumps({k: v for k, v in wh_bars_data}, ensure_ascii=False)
-content = content.replace("__WH_BARS__", wh_js)
+# 各大类仓库分布 Top10
+content = inject(content, "__WH_BARS_BY_CAT__", wh_bars_by_cat)
 
 # 大类库存数据
 content = content.replace("__INV_CATEGORIES__", json.dumps(inv_cat_json, ensure_ascii=False, separators=(",",":")))

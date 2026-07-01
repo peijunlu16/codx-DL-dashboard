@@ -200,6 +200,17 @@
     display:flex;width:62px;height:62px;margin:auto;align-items:center;justify-content:center;
     background:#f0edeb;color:#aaa;border:1px dashed #cbc6c1;font-size:10px;line-height:1.3;
   }
+  .sku-rank-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px;flex-wrap:wrap;}
+  .sku-rank-toolbar h4{margin:0;}
+  .sku-search{display:flex;align-items:center;gap:6px;padding:5px;background:#f0edeb;border-left:4px solid var(--pink);}
+  .sku-search input{
+    width:210px;height:34px;border:1px solid #cbc6c1;background:#fff;padding:0 10px;
+    border-radius:2px;font-size:12px;outline:none;
+  }
+  .sku-search input:focus{border-color:var(--pink);box-shadow:0 0 0 2px rgba(255,0,140,.10);}
+  .sku-search button{height:34px;border:0;border-radius:2px;padding:0 13px;font-weight:700;cursor:pointer;}
+  .sku-search .search-btn{background:var(--ink);color:#fff;}
+  .sku-search .clear-btn{background:#fff;color:#666;border:1px solid #cbc6c1;}
 
   @media (max-width:1100px){
     .grid.cols-5,.grid.cols-4{grid-template-columns:repeat(2,1fr);}
@@ -227,18 +238,18 @@
   <div class="filter-card">
     <div class="seg" id="modeSeg">
       <button data-mode="day">日</button>
-      <button data-mode="month">月</button>
-      <button data-mode="year" class="active">年</button>
+      <button data-mode="month" class="active">月</button>
+      <button data-mode="year">年</button>
       <button data-mode="custom">自定义</button>
     </div>
 
     <div class="grp" id="ctrlDay" style="display:none">
       <span>选择日期</span><input type="date" id="dayPicker" min="__MIN_DATE__" max="__MAX_DATE__" value="__MAX_DATE__">
     </div>
-    <div class="grp" id="ctrlMonth" style="display:none">
-      <span>选择月份</span><input type="month" id="monthPicker" min="2025-01" max="2026-06" value="2026-06">
+    <div class="grp" id="ctrlMonth">
+      <span>选择月份</span><input type="month" id="monthPicker" min="__MIN_MONTH__" max="__MAX_MONTH__" value="__MAX_MONTH__">
     </div>
-    <div class="grp" id="ctrlYear">
+    <div class="grp" id="ctrlYear" style="display:none">
       <span>选择年份</span>
       <select id="yearPicker">
         <option value="2025">2025年</option>
@@ -252,7 +263,7 @@
     </div>
 
     <button class="apply" id="applyBtn">应用</button>
-    <div class="range-tag" id="rangeTag">当前范围：2026年</div>
+    <div class="range-tag" id="rangeTag">当前范围：__MAX_MONTH__</div>
   </div>
 
   <!-- ================= 一、达成概况 ================= -->
@@ -260,9 +271,9 @@
 
   <div class="sub-head"><div class="bullet"></div><h3>整体达成（净销售额 vs 指标目标）</h3></div>
   <div class="chan-tabs" id="chanTabs">
-    <button data-chan="all" class="active">全部</button>
+    <button data-chan="all">全部</button>
     <button data-chan="DA">DA</button>
-    <button data-chan="DL线上">DL线上</button>
+    <button data-chan="DL线上" class="active">DL线上</button>
     <button data-chan="DL线下">DL线下</button>
     <button data-chan="其他">其他</button>
   </div>
@@ -377,11 +388,19 @@
       <div class="chart-box sm"><canvas id="invCatChart"></canvas></div>
     </div>
     <div class="card">
-      <h4 id="invCatTableTitle">各大类库存量</h4>
-      <table>
-        <thead><tr><th>大类</th><th>可用库存（件）</th><th>占比</th></tr></thead>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <h4 id="invCatTableTitle" style="margin:0;">各大类库存量（点击大类查看年季消化率）</h4>
+        <button id="invCatDrillBackBtn" style="display:none;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:2px;cursor:pointer;">× 返回大类</button>
+      </div>
+      <table id="invCatTable">
+        <thead><tr><th>大类</th><th>可用库存（件）</th><th>占比</th><th>库存消化率</th></tr></thead>
         <tbody id="invCatTableBody"></tbody>
       </table>
+      <table id="invCatDrillTable" style="display:none;">
+        <thead><tr><th>年季</th><th>累计净销量（件）</th><th>可用库存（件）</th><th>库存消化率</th></tr></thead>
+        <tbody id="invCatDrillBody"></tbody>
+      </table>
+      <div class="note" style="margin-top:7px;">库存消化率=累计净销量÷（累计净销量+可用库存），采用全量累计口径，不随顶部时间筛选变化。</div>
     </div>
   </div>
 
@@ -417,7 +436,14 @@
   </div>
 
   <div class="grid cols-2">
-    <div class="card"><h4>仓库库存分布（Top10，仅5大类范围）</h4>
+    <div class="card"><h4 id="whBarsTitle">仓库库存分布（Top10）— 女鞋</h4>
+      <div class="chan-tabs" id="whCatTabs" style="margin:4px 0 10px;">
+        <button data-whcat="女鞋" class="active">女鞋</button>
+        <button data-whcat="服装">服装</button>
+        <button data-whcat="箱包">箱包</button>
+        <button data-whcat="配件">配件</button>
+        <button data-whcat="赠品">赠品</button>
+      </div>
       <div class="bar-list" id="whBars"></div>
     </div>
     <div class="card">
@@ -456,7 +482,14 @@
     <button data-chan="DL线下">DL线下</button>
   </div>
   <div class="card">
-    <h4 id="skuRankTitle">女鞋 · 全渠道 — SKC销售排行（按期间净销量降序，Top 30）</h4>
+    <div class="sku-rank-toolbar">
+      <h4 id="skuRankTitle">女鞋 · 全渠道 — SKC销售排行（按期间净销量降序，Top 30）</h4>
+      <div class="sku-search">
+        <input id="skuSearchInput" type="search" inputmode="numeric" placeholder="输入完整或部分 SKC" autocomplete="off">
+        <button class="search-btn" id="skuSearchBtn" type="button">搜索</button>
+        <button class="clear-btn" id="skuSearchClearBtn" type="button" style="display:none;">清空</button>
+      </div>
+    </div>
     <div style="overflow-x:auto;">
     <table>
       <thead><tr>
@@ -496,7 +529,7 @@ const CHANNEL_GROUPS = {
   "DL线下": ["成都COSMO","南京IST","TX淮海","淮海百盛","TX长沙"],
   "其他": ["其他"],
 };
-let currentChannel = "all";
+let currentChannel = "DL线上";
 let drillCustomer = null;
 let salesDrillCustomer = null;
 
@@ -969,7 +1002,7 @@ function render(){
   renderFactoryChart(start,end);
 }
 
-/* ============ 四、销售排行：SKC × 月 × 渠道 聚合数据（限女鞋/服装/箱包）============ */
+/* ============ SKC × 月 × 渠道 聚合数据（覆盖5大类；销售排行界面仍限女鞋/服装/箱包）============ */
 // 每行: [月份YYYY-MM, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
 const SKU_MONTH_CHAN = __SKU_MONTH_CHAN__;
 // 近4周(最近28天，截至__MAX_DATE__)逐日数据，仅用于周转率计算: [日期, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
@@ -979,6 +1012,8 @@ const SKC_NAME = __SKC_NAME__;    // SKC -> 商品名称
 const SKC_IMAGE = __SKC_IMAGE__;  // SKC -> 网页商品图片相对 URL
 const SKC_INV_CHAN = __SKC_INV_CHAN__;  // SKC -> {渠道 -> 库存量}，渠道值为 DA/DL线上/DL线下/all(无明确归属仓库)
 const SKC_FACTORY = __SKC_FACTORY__;   // SKC -> 生产工厂名称（5大类范围）
+const SKC_NIANJI = __SKC_NIANJI__;     // SKC -> 年季
+const INV_CAT_NIANJI = __INV_CAT_NIANJI__; // 大类 -> 年季 -> 可用库存
 // 按当前渠道标签取对应库存：全渠道=所有渠道求和；其他/DA/DL线上/DL线下=对应渠道库存+通用仓(all)
 function getSkcInv(skc){
   const d = SKC_INV_CHAN[skc];
@@ -989,6 +1024,7 @@ function getSkcInv(skc){
 
 let skuCategory = "女鞋";
 let skuChannel = "all";
+let skuSearchTerm = "";
 const SKU_CHANNEL_GROUPS = {
   "DA": ["DA奉贤金汇","DA中环百联"],
   "DL线上": ["得物","抖音","京东","天猫","唯品会","小红书"],
@@ -1000,6 +1036,10 @@ function skuChanMatch(chan){
   return chan===skuChannel; // SKU_MONTH_CHAN/SKU_LAST28_CHAN里的渠道字段已经是分组后的DA/DL线上/DL线下/其他
 }
 
+function skuMatchesFilter(skc){
+  return skuSearchTerm ? String(skc).includes(skuSearchTerm) : SKC_CAT[skc]===skuCategory;
+}
+
 function renderSkuRanking(start,end){
   // 把当前选中的日期区间折算成覆盖到的月份集合（SKU期间/累计数据只有月粒度）
   const dl = daysInRange(start,end);
@@ -1008,7 +1048,7 @@ function renderSkuRanking(start,end){
   const periodAgg = {}; // skc -> {netQty,saleQty,retQty,shipQty,prQty}
   const cumAgg = {};
   SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty,saleQty,retQty,shipQty,prQty])=>{
-    if(SKC_CAT[skc] !== skuCategory) return;
+    if(!skuMatchesFilter(skc)) return;
     if(!skuChanMatch(chan)) return;
     if(!cumAgg[skc]) cumAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
     const c = cumAgg[skc];
@@ -1023,13 +1063,13 @@ function renderSkuRanking(start,end){
   // 近4周净销量（用于周转率，固定取最近28天，不随顶部时间筛选变化，但跟渠道标签联动）
   const last28NetQty = {};
   SKU_LAST28_CHAN.forEach(([date,skc,chan,netQty])=>{
-    if(SKC_CAT[skc] !== skuCategory) return;
+    if(!skuMatchesFilter(skc)) return;
     if(!skuChanMatch(chan)) return;
     last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
   });
 
   const skcSet = new Set(Object.keys(cumAgg));
-  Object.keys(SKC_CAT).forEach(skc=>{ if(SKC_CAT[skc]===skuCategory) skcSet.add(skc); });
+  Object.keys(SKC_CAT).forEach(skc=>{ if(skuMatchesFilter(skc)) skcSet.add(skc); });
 
   const rows = [...skcSet].map(skc=>{
     const p = periodAgg[skc] || {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
@@ -1041,13 +1081,21 @@ function renderSkuRanking(start,end){
     const avgWeeklyNetQty = (last28NetQty[skc]||0)/4;
     const turnoverWeeks = avgWeeklyNetQty>0 ? inv/avgWeeklyNetQty : NaN;
     return {skc, name: SKC_NAME[skc]||"--", inv, periodNetQty:p.netQty, cumNetQty:c.netQty, retRate, preRate, postRate, turnoverWeeks};
-  }).sort((a,b)=> b.periodNetQty - a.periodNetQty).slice(0,30);
+  }).sort((a,b)=> b.periodNetQty - a.periodNetQty);
+
+  const displayRows = skuSearchTerm ? rows : rows.slice(0,30);
 
   const chanLabel = skuChannel==="all" ? "全渠道" : skuChannel;
-  document.getElementById("skuRankTitle").textContent = `${skuCategory} · ${chanLabel} — SKC销售排行（按期间净销量降序，Top 30）`;
+  document.getElementById("skuRankTitle").textContent = skuSearchTerm
+    ? `SKC搜索“${skuSearchTerm}” · ${chanLabel} — 找到 ${displayRows.length} 条`
+    : `${skuCategory} · ${chanLabel} — SKC销售排行（按期间净销量降序，Top 30）`;
   const tbody = document.getElementById("skuRankTbody");
   tbody.innerHTML = "";
-  rows.forEach(r=>{
+  if(displayRows.length===0){
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#9aa3b2;padding:22px;">未找到对应的SKC，请检查编码后重试</td></tr>`;
+    return;
+  }
+  displayRows.forEach(r=>{
     const tr = document.createElement("tr");
     const turnoverText = isFinite(r.turnoverWeeks) ? r.turnoverWeeks.toFixed(1)+"周" : "--";
     const imageUrl = SKC_IMAGE[r.skc];
@@ -1081,18 +1129,56 @@ document.querySelectorAll("#skuChanTabs button").forEach(btn=>{
   });
 });
 
+function applySkuSearch(){
+  skuSearchTerm = document.getElementById("skuSearchInput").value.trim();
+  document.getElementById("skuSearchClearBtn").style.display = skuSearchTerm ? "inline-block" : "none";
+  const {start,end} = getRange();
+  renderSkuRanking(start,end);
+}
+document.getElementById("skuSearchBtn").addEventListener("click", applySkuSearch);
+document.getElementById("skuSearchInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter") applySkuSearch();
+});
+document.getElementById("skuSearchClearBtn").addEventListener("click", ()=>{
+  document.getElementById("skuSearchInput").value = "";
+  skuSearchTerm = "";
+  document.getElementById("skuSearchClearBtn").style.display = "none";
+  const {start,end} = getRange();
+  renderSkuRanking(start,end);
+});
+
 
 const CAT_ORDER = ["女鞋","服装","箱包","配件","赠品"];
 const INV_CATEGORIES = __INV_CATEGORIES__;
 /* ============ 库存数据（静态快照，已按「商品物料」SKC映射，仅保留女鞋/箱包/服装/配件/赠品5大类）============ */
-const warehouses = __WH_BARS__;
-const whMax = Math.max(...Object.values(warehouses));
-const whBarsEl = document.getElementById("whBars");
-Object.entries(warehouses).forEach(([name,v])=>{
-  const row=document.createElement("div"); row.className="bar-row";
-  row.innerHTML=`<div class="name" style="width:150px">${name}</div><div class="track"><div class="fill" style="width:${(v/whMax*100).toFixed(1)}%;background:linear-gradient(90deg,#69f2df,#00bfa6)"></div></div><div class="val">${v.toLocaleString()}件</div>`;
-  whBarsEl.appendChild(row);
+const WH_BARS_BY_CAT = __WH_BARS_BY_CAT__;
+let whCategory = "女鞋";
+function renderWarehouseBars(){
+  const warehouses = WH_BARS_BY_CAT[whCategory] || {};
+  const entries = Object.entries(warehouses);
+  const whMax = entries.length ? Math.max(...entries.map(([,v])=>v)) : 0;
+  const whBarsEl = document.getElementById("whBars");
+  document.getElementById("whBarsTitle").textContent = `仓库库存分布（Top10）— ${whCategory}`;
+  whBarsEl.innerHTML = "";
+  if(!entries.length){
+    whBarsEl.innerHTML = `<div class="placeholder" style="min-height:150px;">该大类暂无仓库库存</div>`;
+    return;
+  }
+  entries.forEach(([name,v])=>{
+    const row=document.createElement("div"); row.className="bar-row";
+    row.innerHTML=`<div class="name" style="width:150px">${name}</div><div class="track"><div class="fill" style="width:${whMax?(v/whMax*100).toFixed(1):0}%;background:linear-gradient(90deg,#69f2df,#00bfa6)"></div></div><div class="val">${v.toLocaleString()}件</div>`;
+    whBarsEl.appendChild(row);
+  });
+}
+document.querySelectorAll("#whCatTabs button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#whCatTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    whCategory = btn.dataset.whcat;
+    renderWarehouseBars();
+  });
 });
+renderWarehouseBars();
 
 const invCatTotal = Object.values(INV_CATEGORIES).reduce((a,b)=>a+b,0);
 new Chart(document.getElementById("invCatChart"),{
@@ -1110,9 +1196,23 @@ new Chart(document.getElementById("invCatChart"),{
     }}
 });
 const invCatTbody = document.getElementById("invCatTableBody");
+const invCatCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,0]));
+const invCatNianjiCumNetQty = Object.fromEntries(CAT_ORDER.map(c=>[c,{}]));
+SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty])=>{
+  const cat = SKC_CAT[skc];
+  if(invCatCumNetQty[cat] !== undefined){
+    invCatCumNetQty[cat] += netQty;
+    const nianji = SKC_NIANJI[skc] || "未知年季";
+    invCatNianjiCumNetQty[cat][nianji] = (invCatNianjiCumNetQty[cat][nianji]||0) + netQty;
+  }
+});
 CAT_ORDER.forEach(name=>{
   const v = INV_CATEGORIES[name] || 0;
+  const cumNetQty = invCatCumNetQty[name] || 0;
+  const digestionRate = (cumNetQty+v)>0 ? cumNetQty/(cumNetQty+v) : NaN;
   const tr = document.createElement("tr");
+  tr.style.cursor = "pointer";
+  tr.title = `点击查看${name}各年季消化率`;
   const pct = (v/invCatTotal*100).toFixed(1);
   tr.innerHTML = `<td>${name}</td><td>${v.toLocaleString()}</td><td>
     <div style="display:flex;align-items:center;gap:6px;">
@@ -1120,8 +1220,41 @@ CAT_ORDER.forEach(name=>{
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#69f2df,#00bfa6);border-radius:4px;"></div>
       </div>
       <span style="width:38px;flex-shrink:0;">${pct}%</span>
-    </div></td>`;
+    </div></td><td style="font-weight:800;color:#ff008c;">${isFinite(digestionRate)?(digestionRate*100).toFixed(1)+"%":"--"}</td>`;
+  tr.addEventListener("click",()=>renderInvCatNianjiDrill(name));
   invCatTbody.appendChild(tr);
+});
+
+function renderInvCatNianjiDrill(cat){
+  const invByNianji = INV_CAT_NIANJI[cat] || {};
+  const salesByNianji = invCatNianjiCumNetQty[cat] || {};
+  const labels = [...new Set([...Object.keys(invByNianji),...Object.keys(salesByNianji)])];
+  const seasonOrder = {"春":0,"夏":1,"秋":2,"冬":3};
+  labels.sort((a,b)=>{
+    const ya=a.slice(0,2), yb=b.slice(0,2);
+    if(ya!==yb) return yb.localeCompare(ya);
+    return (seasonOrder[a.slice(2)]??99)-(seasonOrder[b.slice(2)]??99);
+  });
+  const body = document.getElementById("invCatDrillBody");
+  body.innerHTML = "";
+  labels.forEach(nianji=>{
+    const inv = invByNianji[nianji] || 0;
+    const sales = salesByNianji[nianji] || 0;
+    const rate = (sales+inv)>0 ? sales/(sales+inv) : NaN;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${nianji}</td><td>${sales.toLocaleString()}</td><td>${inv.toLocaleString()}</td><td style="font-weight:800;color:#ff008c;">${isFinite(rate)?(rate*100).toFixed(1)+"%":"--"}</td>`;
+    body.appendChild(tr);
+  });
+  document.getElementById("invCatTable").style.display = "none";
+  document.getElementById("invCatDrillTable").style.display = "table";
+  document.getElementById("invCatTableTitle").textContent = `${cat} — 年季库存消化率`;
+  document.getElementById("invCatDrillBackBtn").style.display = "inline-block";
+}
+document.getElementById("invCatDrillBackBtn").addEventListener("click",()=>{
+  document.getElementById("invCatTable").style.display = "table";
+  document.getElementById("invCatDrillTable").style.display = "none";
+  document.getElementById("invCatTableTitle").textContent = "各大类库存量（点击大类查看年季消化率）";
+  document.getElementById("invCatDrillBackBtn").style.display = "none";
 });
 
 /* ============ 年季库存总览（5大类合计，按年份+春夏秋冬固定排序）============ */
