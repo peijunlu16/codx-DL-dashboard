@@ -181,6 +181,8 @@ inv_channel_agg = {
         "cat": defaultdict(int), "nianji": defaultdict(int), "small": defaultdict(int),
         "smallDrill": defaultdict(lambda: defaultdict(int)), "wh": defaultdict(lambda: defaultdict(int)),
         "catNianji": defaultdict(lambda: defaultdict(int)),
+        "catSmall": defaultdict(lambda: defaultdict(int)),
+        "catSmallDrill": defaultdict(lambda: defaultdict(lambda: defaultdict(int))),
     }
     for ch in ("all", "DL线上", "DL线下")
 }
@@ -216,6 +218,8 @@ for r in ws.iter_rows(min_row=2, values_only=True):
         agg["smallDrill"][meta["small"]][meta["nianji"]] += qty
         agg["wh"][cat][wh] += qty
         agg["catNianji"][cat][meta["nianji"]] += qty
+        agg["catSmall"][cat][meta["small"]] += qty
+        agg["catSmallDrill"][cat][meta["small"]][meta["nianji"]] += qty
     if cat in TARGET_CATS_5:
         skc_inv_chan[skc][chan] += qty
 
@@ -229,6 +233,13 @@ def serialize_inv_channel(agg):
     small_top = [{"label": k, "v": v} for k, v in small_sorted[:15]]
     small_rest = sum(v for _, v in small_sorted[15:])
     if small_rest > 0: small_top.append({"label": "其他小类", "v": small_rest})
+    cat_small = {}
+    for cat in CAT_ORDER:
+        items = sorted(agg["catSmall"][cat].items(), key=lambda x: -x[1])
+        top = [{"label": k, "v": v} for k, v in items[:15]]
+        rest = sum(v for _, v in items[15:])
+        if rest > 0: top.append({"label": "其他小类", "v": rest})
+        cat_small[cat] = top
     return {
         "cat": {c: agg["cat"].get(c, 0) for c in CAT_ORDER},
         "nianji": [{"label": k, "v": v} for k, v in agg["nianji"].items()],
@@ -236,6 +247,11 @@ def serialize_inv_channel(agg):
         "smallDrill": {sm: [{"label": k, "v": v} for k, v in nd.items()] for sm, nd in agg["smallDrill"].items()},
         "wh": {c: {w: q for w, q in sorted(agg["wh"][c].items(), key=lambda x: -x[1])[:10]} for c in CAT_ORDER},
         "catNianji": {c: dict(agg["catNianji"][c]) for c in CAT_ORDER},
+        "catSmall": cat_small,
+        "catSmallDrill": {
+            c: {sm: [{"label": k, "v": v} for k, v in nd.items()] for sm, nd in agg["catSmallDrill"][c].items()}
+            for c in CAT_ORDER
+        },
     }
 
 inv_channel_data = {ch: serialize_inv_channel(agg) for ch, agg in inv_channel_agg.items()}

@@ -185,6 +185,10 @@
   .time-progress .tp-value{font-size:15px;font-weight:900;color:var(--ink);}
   .time-progress .tp-track{height:8px;background:#dfdbd7;overflow:hidden;}
   .time-progress .tp-fill{height:100%;background:linear-gradient(90deg,var(--pink),#ff60b7);transition:width .25s ease;}
+  .trend-chip{display:inline-block;min-width:64px;padding:2px 7px;border-radius:2px;text-align:center;font-weight:900;letter-spacing:.01em;}
+  .trend-chip.up{background:#111;color:#d4ff38;box-shadow:2px 2px 0 rgba(255,255,255,.28);}
+  .trend-chip.down{background:#fff;color:#c4006c;box-shadow:2px 2px 0 rgba(0,0,0,.16);}
+  .trend-chip.neutral{background:rgba(255,255,255,.72);color:#666;}
   th{background:#171717;color:#fff;padding:9px 7px;}
   td{border-bottom-color:#e6e2df;}
   tr:hover td{background:#fff0f8;}
@@ -416,24 +420,17 @@
       <div class="chart-box sm"><canvas id="invCatChart"></canvas></div>
     </div>
     <div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <h4 id="invCatTableTitle" style="margin:0;">各大类库存量（点击大类查看年季消化率）</h4>
-        <button id="invCatDrillBackBtn" style="display:none;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:2px;cursor:pointer;">× 返回大类</button>
-      </div>
+      <h4 id="invCatTableTitle">各大类库存量（点击联动下方图表，再次点击恢复）</h4>
       <table id="invCatTable">
         <thead><tr><th>大类</th><th>可用库存（件）</th><th>占比</th><th>库存消化率</th></tr></thead>
         <tbody id="invCatTableBody"></tbody>
-      </table>
-      <table id="invCatDrillTable" style="display:none;">
-        <thead><tr><th>年季</th><th>累计净销量（件）</th><th>可用库存（件）</th><th>库存消化率</th></tr></thead>
-        <tbody id="invCatDrillBody"></tbody>
       </table>
       <div class="note" style="margin-top:7px;">库存消化率=累计净销量÷（累计净销量+可用库存），采用全量累计口径，不随顶部时间筛选变化。</div>
     </div>
   </div>
 
   <div class="grid cols-2" style="margin-bottom:14px;">
-    <div class="card"><h4>年季库存总览（5大类合计）</h4>
+    <div class="card"><h4 id="invNianjiTitle">年季库存总览（5大类合计）</h4>
       <div class="chart-box sm"><canvas id="invNianjiChart"></canvas></div>
     </div>
     <div class="card">
@@ -566,13 +563,17 @@ const fmtWan = n => (n/10000).toFixed(1) + "万";
 const fmtWanValue = n => (n/10000).toFixed(1);
 const fmtPct = n => isFinite(n) ? (n*100).toFixed(1) + "%" : "--";
 
-function renderTimeProgress(){
+function renderTimeProgress(selectedStart,selectedEnd){
   const latest = "__MAX_DATE__";
-  const ym = latest.slice(0,7);
+  const latestYm = latest.slice(0,7);
+  const selectedYm = (selectedEnd||latest).slice(0,7);
+  const isHistorical = selectedYm < latestYm;
   const day = Number(latest.slice(8,10));
-  const totalDays = daysInMonth(ym);
-  const progress = totalDays>0 ? day/totalDays : 0;
-  document.getElementById("timeProgressLabel").textContent = `时间进度（截至 ${latest}，按月平均）`;
+  const totalDays = daysInMonth(latestYm);
+  const progress = isHistorical ? 1 : (totalDays>0 ? day/totalDays : 0);
+  document.getElementById("timeProgressLabel").textContent = isHistorical
+    ? `时间进度（${selectedYm} 历史月份已完成）`
+    : `时间进度（截至 ${latest}，按月平均）`;
   document.getElementById("timeProgressTxt").textContent = (progress*100).toFixed(1)+"%";
   document.getElementById("timeProgressFill").style.width = Math.min(progress*100,100).toFixed(1)+"%";
 }
@@ -693,6 +694,7 @@ function getRange(){
 function render(){
   const {mode,start,end,label} = getRange();
   document.getElementById("rangeTag").textContent = label;
+  renderTimeProgress(start,end);
 
   const rows = RAW.filter(r => r[0] >= start && r[0] <= end);
   const activeCustomers = currentChannel==="all" ? ALL_CUSTOMERS : (CHANNEL_GROUPS[currentChannel] || ALL_CUSTOMERS);
@@ -756,9 +758,9 @@ function render(){
   const momRate = momNetAmt>0 ? (rNetAmt-momNetAmt)/momNetAmt : NaN;
   const yoyRate = yoyNetAmt>0 ? (rNetAmt-yoyNetAmt)/yoyNetAmt : NaN;
   function trendSpan(rate){
-    if(!isFinite(rate)) return `<span style="color:#9aa3b2">--</span>`;
+    if(!isFinite(rate)) return `<span class="trend-chip neutral">--</span>`;
     const up = rate>=0;
-    return `<span style="color:${up?'#00bfa6':'#ff6b6b'}">${up?'▲':'▼'} ${Math.abs(rate*100).toFixed(1)}%</span>`;
+    return `<span class="trend-chip ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(rate*100).toFixed(1)}%</span>`;
   }
 
   // -------- 收入概况 KPI（受渠道标签筛选）--------
@@ -1276,7 +1278,7 @@ function renderInvCatTable(){
   const digestionRate = (cumNetQty+v)>0 ? cumNetQty/(cumNetQty+v) : NaN;
   const tr = document.createElement("tr");
   tr.style.cursor = "pointer";
-  tr.title = `点击查看${name}各年季消化率`;
+  tr.title = `点击联动查看${name}的年季与小类库存`;
   const pct = (v/invCatTotal*100).toFixed(1);
   tr.innerHTML = `<td>${name}</td><td>${v.toLocaleString()}</td><td>
     <div style="display:flex;align-items:center;gap:6px;">
@@ -1285,43 +1287,11 @@ function renderInvCatTable(){
       </div>
       <span style="width:38px;flex-shrink:0;">${pct}%</span>
     </div></td><td style="font-weight:800;color:#ff008c;">${isFinite(digestionRate)?(digestionRate*100).toFixed(1)+"%":"--"}</td>`;
-  tr.addEventListener("click",()=>renderInvCatNianjiDrill(name));
+  tr.addEventListener("click",()=>applyInvCategoryLink(name));
   invCatTbody.appendChild(tr);
   });
 }
 renderInvCatTable();
-
-function renderInvCatNianjiDrill(cat){
-  const invByNianji = INV_CAT_NIANJI[cat] || {};
-  const salesByNianji = invCatNianjiCumNetQty[cat] || {};
-  const labels = [...new Set([...Object.keys(invByNianji),...Object.keys(salesByNianji)])];
-  const seasonOrder = {"春":0,"夏":1,"秋":2,"冬":3};
-  labels.sort((a,b)=>{
-    const ya=a.slice(0,2), yb=b.slice(0,2);
-    if(ya!==yb) return ya.localeCompare(yb);
-    return (seasonOrder[a.slice(2)]??99)-(seasonOrder[b.slice(2)]??99);
-  });
-  const body = document.getElementById("invCatDrillBody");
-  body.innerHTML = "";
-  labels.forEach(nianji=>{
-    const inv = invByNianji[nianji] || 0;
-    const sales = salesByNianji[nianji] || 0;
-    const rate = (sales+inv)>0 ? sales/(sales+inv) : NaN;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${nianji}</td><td>${sales.toLocaleString()}</td><td>${inv.toLocaleString()}</td><td style="font-weight:800;color:#ff008c;">${isFinite(rate)?(rate*100).toFixed(1)+"%":"--"}</td>`;
-    body.appendChild(tr);
-  });
-  document.getElementById("invCatTable").style.display = "none";
-  document.getElementById("invCatDrillTable").style.display = "table";
-  document.getElementById("invCatTableTitle").textContent = `${cat} — 年季库存消化率`;
-  document.getElementById("invCatDrillBackBtn").style.display = "inline-block";
-}
-document.getElementById("invCatDrillBackBtn").addEventListener("click",()=>{
-  document.getElementById("invCatTable").style.display = "table";
-  document.getElementById("invCatDrillTable").style.display = "none";
-  document.getElementById("invCatTableTitle").textContent = "各大类库存量（点击大类查看年季消化率）";
-  document.getElementById("invCatDrillBackBtn").style.display = "none";
-});
 
 /* ============ 年季库存总览（5大类合计，按年份+春夏秋冬固定排序）============ */
 const SEASON_ORDER = {"春":0,"夏":1,"秋":2,"冬":3};
@@ -1344,6 +1314,9 @@ let invNianjiChart = new Chart(document.getElementById("invNianjiChart"),{
 /* ============ 小类库存总览（Top15+其他，点击柱子下钻到 年季）============ */
 let INV_SMALL = INV_CHANNEL_DATA.all.small;
 let INV_SMALL_DRILL = INV_CHANNEL_DATA.all.smallDrill;
+let INV_CAT_SMALL = INV_CHANNEL_DATA.all.catSmall;
+let INV_CAT_SMALL_DRILL = INV_CHANNEL_DATA.all.catSmallDrill;
+let selectedInvCategory = null;
 let invSmallChart = new Chart(document.getElementById("invSmallChart"),{
   type:"bar",
   data:{labels:INV_SMALL.map(it=>it.label), datasets:[{label:"库存量",data:INV_SMALL.map(it=>it.v),
@@ -1382,6 +1355,50 @@ document.getElementById("invSmallDrillBackBtn").addEventListener("click", ()=>{
   document.getElementById("invSmallDrillBars").style.display = "none";
   document.getElementById("invSmallDrillBackBtn").style.display = "none";
 });
+
+function sortedNianjiItems(source){
+  return Object.entries(source||{}).map(([label,v])=>({label,v})).sort((a,b)=>{
+    const ya=a.label.slice(0,2), yb=b.label.slice(0,2);
+    if(ya!==yb) return ya.localeCompare(yb);
+    return (SEASON_ORDER[a.label.slice(2)]??99)-(SEASON_ORDER[b.label.slice(2)]??99);
+  });
+}
+function refreshInvLinkedCharts(){
+  invNianjiChart.data.labels = INV_NIANJI.map(it=>it.label);
+  invNianjiChart.data.datasets[0].data = INV_NIANJI.map(it=>it.v);
+  invNianjiChart.update();
+  invSmallChart.data.labels = INV_SMALL.map(it=>it.label);
+  invSmallChart.data.datasets[0].data = INV_SMALL.map(it=>it.v);
+  invSmallChart.update();
+  document.getElementById("invSmallDrillBackBtn").click();
+}
+function applyInvCategoryLink(cat){
+  if(selectedInvCategory===cat){
+    resetInvCategoryLink();
+    return;
+  }
+  selectedInvCategory = cat;
+  INV_NIANJI = sortedNianjiItems(INV_CAT_NIANJI[cat]);
+  INV_SMALL = INV_CAT_SMALL[cat] || [];
+  INV_SMALL_DRILL = INV_CAT_SMALL_DRILL[cat] || {};
+  document.getElementById("invNianjiTitle").textContent = `${cat} — 年季库存总览`;
+  document.getElementById("invSmallTitle").textContent = `${cat} — 小类库存总览（点击柱子可下钻到年季）`;
+  refreshInvLinkedCharts();
+}
+function resetInvCategoryLink(){
+  selectedInvCategory = null;
+  INV_NIANJI_RAW = (INV_CHANNEL_DATA[invChannel]||INV_CHANNEL_DATA.all).nianji;
+  INV_NIANJI = [...INV_NIANJI_RAW].sort((a,b)=>{
+    const ya=a.label.slice(0,2), yb=b.label.slice(0,2);
+    if(ya!==yb) return ya.localeCompare(yb);
+    return (SEASON_ORDER[a.label.slice(2)]??99)-(SEASON_ORDER[b.label.slice(2)]??99);
+  });
+  INV_SMALL = (INV_CHANNEL_DATA[invChannel]||INV_CHANNEL_DATA.all).small;
+  INV_SMALL_DRILL = (INV_CHANNEL_DATA[invChannel]||INV_CHANNEL_DATA.all).smallDrill;
+  document.getElementById("invNianjiTitle").textContent = "年季库存总览（5大类合计）";
+  document.getElementById("invSmallTitle").textContent = "小类库存总览（点击柱子可下钻到年季）";
+  refreshInvLinkedCharts();
+}
 
 /* ============ 生产工厂数量占比（期间净销量+可用库存，随大类标签+顶部时间筛选联动）============ */
 let factoryCat = "女鞋";
@@ -1524,11 +1541,13 @@ function applyInventoryChannel(){
   });
   INV_SMALL = data.small;
   INV_SMALL_DRILL = data.smallDrill;
+  INV_CAT_SMALL = data.catSmall;
+  INV_CAT_SMALL_DRILL = data.catSmallDrill;
   invCatTotal = Object.values(INV_CATEGORIES).reduce((a,b)=>a+b,0);
   invCatChart.data.datasets[0].data = CAT_ORDER.map(c=>INV_CATEGORIES[c]||0);
   invCatChart.update();
   renderInvCatTable();
-  document.getElementById("invCatDrillBackBtn").click();
+  resetInvCategoryLink();
   invNianjiChart.data.labels = INV_NIANJI.map(it=>it.label);
   invNianjiChart.data.datasets[0].data = INV_NIANJI.map(it=>it.v);
   invNianjiChart.update();
@@ -1575,7 +1594,6 @@ document.querySelectorAll("#chanTabs button").forEach(btn=>{
 document.getElementById("drillBackBtn").addEventListener("click", ()=>{ drillCustomer = null; render(); });
 document.getElementById("salesDrillBackBtn").addEventListener("click", ()=>{ salesDrillCustomer = null; render(); });
 
-renderTimeProgress();
 render();
 </script>
 </body>
