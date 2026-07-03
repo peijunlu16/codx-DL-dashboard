@@ -180,6 +180,11 @@
 
   .ring-center .pct{color:var(--ink);font-size:28px;}
   .ring-center .lbl{color:#777;}
+  .time-progress{width:100%;margin-top:2px;padding:10px 12px;background:#f5f2ef;border-left:4px solid var(--pink);}
+  .time-progress .tp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:#686868;margin-bottom:6px;}
+  .time-progress .tp-value{font-size:15px;font-weight:900;color:var(--ink);}
+  .time-progress .tp-track{height:8px;background:#dfdbd7;overflow:hidden;}
+  .time-progress .tp-fill{height:100%;background:linear-gradient(90deg,var(--pink),#ff60b7);transition:width .25s ease;}
   th{background:#171717;color:#fff;padding:9px 7px;}
   td{border-bottom-color:#e6e2df;}
   tr:hover td{background:#fff0f8;}
@@ -295,6 +300,10 @@
     <div class="card ring-card">
       <div class="ring-wrap"><canvas id="ringRevenue"></canvas>
         <div class="ring-center"><div class="pct" id="ringRevenueTxt">--</div><div class="lbl">指标达成率</div></div>
+      </div>
+      <div class="time-progress">
+        <div class="tp-row"><span id="timeProgressLabel">时间进度（按月平均）</span><span class="tp-value" id="timeProgressTxt">--</span></div>
+        <div class="tp-track"><div class="tp-fill" id="timeProgressFill" style="width:0;"></div></div>
       </div>
     </div>
     <div class="card kpi blue">
@@ -556,6 +565,17 @@ let salesDrillCustomer = null;
 const fmtWan = n => (n/10000).toFixed(1) + "万";
 const fmtWanValue = n => (n/10000).toFixed(1);
 const fmtPct = n => isFinite(n) ? (n*100).toFixed(1) + "%" : "--";
+
+function renderTimeProgress(){
+  const latest = "__MAX_DATE__";
+  const ym = latest.slice(0,7);
+  const day = Number(latest.slice(8,10));
+  const totalDays = daysInMonth(ym);
+  const progress = totalDays>0 ? day/totalDays : 0;
+  document.getElementById("timeProgressLabel").textContent = `时间进度（截至 ${latest}，按月平均）`;
+  document.getElementById("timeProgressTxt").textContent = (progress*100).toFixed(1)+"%";
+  document.getElementById("timeProgressFill").style.width = Math.min(progress*100,100).toFixed(1)+"%";
+}
 
 function daysInRange(start,end){
   const out=[]; let d=new Date(start+"T00:00:00");
@@ -1555,6 +1575,7 @@ document.querySelectorAll("#chanTabs button").forEach(btn=>{
 document.getElementById("drillBackBtn").addEventListener("click", ()=>{ drillCustomer = null; render(); });
 document.getElementById("salesDrillBackBtn").addEventListener("click", ()=>{ salesDrillCustomer = null; render(); });
 
+renderTimeProgress();
 render();
 </script>
 </body>
