@@ -68,7 +68,21 @@ STORE_MAPPING = {
     "DAPHNE.LAB上海TX淮海直营店":"TX淮海",
     "DAPHNE.LAB上海淮海百盛直营店":"淮海百盛",
     "DAPHNE.LAB长沙TX直营店":"TX长沙",
+    "DAPHNE.LAB TX长沙直营店":"TX长沙",
 }
+
+# 以“仓库与店铺对应关系表.xlsx”D/E列为最新店铺映射，覆盖脚本默认值。
+mapping_wb = openpyxl.load_workbook(path("仓库与店铺对应关系表.xlsx"), read_only=True, data_only=True)
+mapping_ws = mapping_wb["Sheet1"]
+mapping_store_count = 0
+for r in mapping_ws.iter_rows(min_row=2, values_only=True):
+    store = r[3] if len(r) > 3 else None
+    customer = r[4] if len(r) > 4 else None
+    if store and customer:
+        STORE_MAPPING[str(store).strip()] = str(customer).strip()
+        mapping_store_count += 1
+mapping_wb.close()
+print(f"店铺映射表已加载：{mapping_store_count} 条")
 
 CHANNEL_GROUPS = {
     "DA": {"DA奉贤金汇","DA中环百联"},
@@ -140,6 +154,16 @@ WH_TO_CHAN = {
     "DAPHNE上海奉贤金汇天街直营店":"DA","DAPHNE上海普陀中环百联直营店":"DA",
     "达芙妮DA直营仓":"DA",
 }
+
+# 以映射表A/B列为最新仓库渠道映射。
+mapping_wb = openpyxl.load_workbook(path("仓库与店铺对应关系表.xlsx"), read_only=True, data_only=True)
+mapping_ws = mapping_wb["Sheet1"]
+for r in mapping_ws.iter_rows(min_row=2, values_only=True):
+    warehouse = r[0] if len(r) > 0 else None
+    channel = r[1] if len(r) > 1 else None
+    if warehouse and channel:
+        WH_TO_CHAN[str(warehouse).strip()] = str(channel).strip()
+mapping_wb.close()
 
 wb = openpyxl.load_workbook(path("库存数据.xlsx"), read_only=True, data_only=True)
 ws = wb["Sheet1"]
@@ -368,6 +392,7 @@ content = content.replace("__MAX_DATE__", max_date)
 content = content.replace("__MIN_DATE__", min_date)
 content = content.replace("__MAX_MONTH__", max_date[:7])
 content = content.replace("__MIN_MONTH__", min_date[:7])
+content = content.replace("__CURRENT_MONTH_START__", max_date[:7] + "-01")
 content = content.replace("__LAST28_START__", last28_start)
 content = content.replace("__MAX_YEAR__", max_date[:4])
 

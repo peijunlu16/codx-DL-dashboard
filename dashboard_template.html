@@ -202,6 +202,14 @@
   }
   .sku-rank-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px;flex-wrap:wrap;}
   .sku-rank-toolbar h4{margin:0;}
+  .sku-rank-scroll{max-height:560px;overflow:auto;position:relative;scrollbar-color:var(--pink) #ece9e6;scrollbar-width:thin;}
+  .sku-rank-scroll thead th{position:sticky;top:0;z-index:8;background:#171717;box-shadow:0 1px 0 #171717;}
+  .sku-rank-scroll::-webkit-scrollbar{width:9px;height:9px;}
+  .sku-rank-scroll::-webkit-scrollbar-track{background:#ece9e6;}
+  .sku-rank-scroll::-webkit-scrollbar-thumb{background:var(--pink);border:2px solid #ece9e6;}
+  .sku-more-wrap{display:flex;justify-content:center;padding-top:10px;}
+  .sku-more-btn{border:1px solid var(--ink);background:#fff;color:var(--ink);border-radius:2px;padding:8px 24px;font-size:12px;font-weight:800;cursor:pointer;}
+  .sku-more-btn:hover{background:var(--pink);border-color:var(--pink);}
   .sku-search{display:flex;align-items:center;gap:6px;padding:5px;background:#f0edeb;border-left:4px solid var(--pink);}
   .sku-search input{
     width:210px;height:34px;border:1px solid #cbc6c1;background:#fff;padding:0 10px;
@@ -244,15 +252,15 @@
   <div class="filter-card">
     <div class="seg" id="modeSeg">
       <button data-mode="day">日</button>
-      <button data-mode="month" class="active">月</button>
+      <button data-mode="month">月</button>
       <button data-mode="year">年</button>
-      <button data-mode="custom">自定义</button>
+      <button data-mode="custom" class="active">自定义</button>
     </div>
 
     <div class="grp" id="ctrlDay" style="display:none">
       <span>选择日期</span><input type="date" id="dayPicker" min="__MIN_DATE__" max="__MAX_DATE__" value="__MAX_DATE__">
     </div>
-    <div class="grp" id="ctrlMonth">
+    <div class="grp" id="ctrlMonth" style="display:none">
       <span>选择月份</span><input type="month" id="monthPicker" min="__MIN_MONTH__" max="__MAX_MONTH__" value="__MAX_MONTH__">
     </div>
     <div class="grp" id="ctrlYear" style="display:none">
@@ -263,13 +271,13 @@
         <option value="all">全部年份</option>
       </select>
     </div>
-    <div class="grp" id="ctrlCustom" style="display:none">
-      <span>从</span><input type="date" id="customStart" min="__MIN_DATE__" max="__MAX_DATE__" value="__MIN_DATE__">
+    <div class="grp" id="ctrlCustom">
+      <span>从</span><input type="date" id="customStart" min="__MIN_DATE__" max="__MAX_DATE__" value="__CURRENT_MONTH_START__">
       <span>到</span><input type="date" id="customEnd" min="__MIN_DATE__" max="__MAX_DATE__" value="__MAX_DATE__">
     </div>
 
     <button class="apply" id="applyBtn">应用</button>
-    <div class="range-tag" id="rangeTag">当前范围：__MAX_MONTH__</div>
+    <div class="range-tag" id="rangeTag">当前范围：__CURRENT_MONTH_START__ 至 __MAX_DATE__</div>
   </div>
 
   <!-- ================= 一、达成概况 ================= -->
@@ -501,7 +509,7 @@
         <button class="clear-btn" id="skuSearchClearBtn" type="button" style="display:none;">清空</button>
       </div>
     </div>
-    <div style="overflow-x:auto;">
+    <div class="sku-rank-scroll">
     <table>
       <thead><tr>
         <th>商品图片</th><th>SKC</th><th>商品名称</th><th>库存</th><th>期间净销量</th><th>累计净销量</th>
@@ -510,6 +518,7 @@
       <tbody id="skuRankTbody"></tbody>
     </table>
     </div>
+    <div class="sku-more-wrap"><button id="skuShowMoreBtn" class="sku-more-btn" type="button" style="display:none;">显示更多</button></div>
     <div class="note" style="margin-top:8px;">
       口径说明：期间净销量按日级数据汇总，精确跟随顶部起止日期，并可叠加渠道标签筛选；累计净销量、退货率、发货前退货率、发货后退货率均按<strong>全量累计</strong>口径计算（__MIN_DATE__ 至 __MAX_DATE__），不随顶部时间筛选变化；退货率=累计退货数量/累计销售数量，发货前退货率=(累计销售数量-累计实发数量)/累计销售数量，发货后退货率=累计实退数量/累计实发数量；周转率=当前可用库存/近4周（最近28天，截至__MAX_DATE__）平均周净销量，不随顶部时间筛选变化，但随渠道标签联动。默认按期间净销量从高到低展示前30个SKC。
     </div>
@@ -688,18 +697,10 @@ function render(){
   const byCustRev = {};
   activeCustomers.forEach(c=> byCustRev[c] = byCust[c] || {netQty:0,netAmt:0,saleQty:0,saleAmt:0,retQty:0,retAmt:0});
 
-  // -------- 目标（按区间覆盖天数比例折算，跨月分段累加）--------
+  // -------- 目标（按顶部区间覆盖到的月份汇总完整月目标，不按天数折算）--------
   function rangeTarget(cust){
-    let t=0;
-    const dl = daysInRange(start,end);
-    const byMonth = {};
-    dl.forEach(d=>{ const ym=d.slice(0,7); byMonth[ym]=(byMonth[ym]||0)+1; });
-    Object.entries(byMonth).forEach(([ym,cnt])=>{
-      const full = monthTarget(cust,ym);
-      const dim = daysInMonth(ym);
-      t += full * (cnt/dim);
-    });
-    return t;
+    const months = new Set(daysInRange(start,end).map(d=>d.slice(0,7)));
+    return [...months].reduce((sum,ym)=>sum+monthTarget(cust,ym),0);
   }
   let totalTarget = 0;
   const TARGET_CUSTOMERS = Object.keys(TARGETS).filter(c=>activeCustomers.includes(c));
@@ -849,6 +850,8 @@ function render(){
     if(yoyNetByCust[r[1]] !== undefined) yoyNetByCust[r[1]] += r[3]; // r[3] = netAmt 原始净销售额
   });
 
+  const customerFixedOrder = ["天猫","抖音","京东","唯品会","得物","小红书"];
+  const customerOrderIndex = Object.fromEntries(customerFixedOrder.map((c,i)=>[c,i]));
   const rowsForTable = activeCustomers.map(c=>{
     const saleAmt = byCust[c]? byCust[c].saleAmt : 0;  // 支付金额
     const yoySaleAmt = yoyByCust[c] || 0;
@@ -860,7 +863,11 @@ function render(){
     const tgt = hasTarget ? rangeTarget(c) : 0;
     const rate = hasTarget && tgt>0 ? actual/tgt : null;
     return {c, saleAmt, yoySaleAmt, netAmt, yoyNetAmt, actual, tgt, rate, hasTarget, isDLOnline};
-  }).sort((a,b)=>b.saleAmt-a.saleAmt);
+  }).sort((a,b)=>{
+    const ai = customerOrderIndex[a.c] ?? (customerFixedOrder.length + ALL_CUSTOMERS.indexOf(a.c));
+    const bi = customerOrderIndex[b.c] ?? (customerFixedOrder.length + ALL_CUSTOMERS.indexOf(b.c));
+    return ai-bi;
+  });
 
   const customerTotalNetAmt = rowsForTable.reduce((s,r)=>s+Math.max(r.netAmt,0),0);
 
@@ -1038,6 +1045,7 @@ function getSkcInv(skc){
 let skuCategory = "女鞋";
 let skuChannel = "all";
 let skuSearchTerm = "";
+let skuVisibleCount = 30;
 const SKU_CHANNEL_GROUPS = {
   "DA": ["DA奉贤金汇","DA中环百联"],
   "DL线上": ["得物","抖音","京东","天猫","唯品会","小红书"],
@@ -1095,7 +1103,15 @@ function renderSkuRanking(start,end){
     return {skc, name: SKC_NAME[skc]||"--", inv, periodNetQty:p.netQty, cumNetQty:c.netQty, retRate, preRate, postRate, turnoverWeeks};
   }).sort((a,b)=> b.periodNetQty - a.periodNetQty);
 
-  const displayRows = skuSearchTerm ? rows : rows.slice(0,30);
+  const displayRows = skuSearchTerm ? rows : rows.slice(0,skuVisibleCount);
+  const moreBtn = document.getElementById("skuShowMoreBtn");
+  if(skuSearchTerm || rows.length<=30){
+    moreBtn.style.display = "none";
+  } else {
+    moreBtn.style.display = "inline-block";
+    moreBtn.textContent = skuVisibleCount>=rows.length ? "收起至 Top 30" : `显示更多（还有 ${rows.length-displayRows.length} 条）`;
+    moreBtn.dataset.total = rows.length;
+  }
 
   const chanLabel = skuChannel==="all" ? "全渠道" : skuChannel;
   document.getElementById("skuRankTitle").textContent = skuSearchTerm
@@ -1127,6 +1143,7 @@ document.querySelectorAll("#skuCatTabs button").forEach(btn=>{
     document.querySelectorAll("#skuCatTabs button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     skuCategory = btn.dataset.cat;
+    skuVisibleCount = 30;
     const {start,end} = getRange();
     renderSkuRanking(start,end);
   });
@@ -1136,6 +1153,7 @@ document.querySelectorAll("#skuChanTabs button").forEach(btn=>{
     document.querySelectorAll("#skuChanTabs button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     skuChannel = btn.dataset.chan;
+    skuVisibleCount = 30;
     const {start,end} = getRange();
     renderSkuRanking(start,end);
   });
@@ -1143,6 +1161,7 @@ document.querySelectorAll("#skuChanTabs button").forEach(btn=>{
 
 function applySkuSearch(){
   skuSearchTerm = document.getElementById("skuSearchInput").value.trim();
+  skuVisibleCount = 30;
   document.getElementById("skuSearchClearBtn").style.display = skuSearchTerm ? "inline-block" : "none";
   const {start,end} = getRange();
   renderSkuRanking(start,end);
@@ -1154,7 +1173,14 @@ document.getElementById("skuSearchInput").addEventListener("keydown", e=>{
 document.getElementById("skuSearchClearBtn").addEventListener("click", ()=>{
   document.getElementById("skuSearchInput").value = "";
   skuSearchTerm = "";
+  skuVisibleCount = 30;
   document.getElementById("skuSearchClearBtn").style.display = "none";
+  const {start,end} = getRange();
+  renderSkuRanking(start,end);
+});
+document.getElementById("skuShowMoreBtn").addEventListener("click",()=>{
+  const total = Number(document.getElementById("skuShowMoreBtn").dataset.total||0);
+  skuVisibleCount = skuVisibleCount>=total ? 30 : Math.min(skuVisibleCount+30,total);
   const {start,end} = getRange();
   renderSkuRanking(start,end);
 });
