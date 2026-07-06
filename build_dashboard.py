@@ -290,6 +290,7 @@ ws = wb["Sheet1"]
 all_dates = []
 daily_agg = defaultdict(lambda: [0]*13)
 sku_day_chan = defaultdict(lambda: [0]*5)
+sku_day_store = defaultdict(lambda: [0]*5)
 row_count = 0
 
 for r in ws.iter_rows(min_row=2, values_only=True):
@@ -322,6 +323,10 @@ for r in ws.iter_rows(min_row=2, values_only=True):
         key2 = (date, skc, chan); b = sku_day_chan[key2]
         b[0]+=r[6] or 0; b[1]+=r[8] or 0; b[2]+=r[10] or 0
         b[3]+=r[15] or 0; b[4]+=r[17] or 0
+        store_name = str(store).strip() if store else "未识别店铺"
+        key3 = (date, skc, chan, store_name); c = sku_day_store[key3]
+        c[0]+=r[6] or 0; c[1]+=r[8] or 0; c[2]+=r[10] or 0
+        c[3]+=r[15] or 0; c[4]+=r[17] or 0
 
 max_date = max(all_dates) if all_dates else "2026-06-29"
 min_date = min(all_dates) if all_dates else "2025-01-01"
@@ -337,6 +342,13 @@ for (date, skc, chan), v in sku_day_chan.items():
     for i in range(5): a[i] += v[i]
 sku_month_chan = sorted([[ym,skc,chan]+v for (ym,skc,chan),v in month_agg.items()])
 sku_day_chan_out = sorted([[date,skc,chan]+v for (date,skc,chan),v in sku_day_chan.items()])
+
+# 销售排行店铺切片：只注入一份日级数据，月累计与近4周均在前端按日期汇总
+sku_day_store_out = sorted([[date,skc,chan,store]+v for (date,skc,chan,store),v in sku_day_store.items()])
+sku_store_options = defaultdict(set)
+for _, _, chan, store in sku_day_store.keys():
+    sku_store_options[chan].add(store)
+sku_store_options = {chan: sorted(stores) for chan, stores in sku_store_options.items()}
 
 # 近28天（截至 max_date 的前28天）
 from datetime import datetime, timedelta
@@ -415,8 +427,9 @@ content = content.replace("__MAX_YEAR__", max_date[:4])
 content = inject(content, "__DAILY_DATA__",       daily_out)
 content = inject(content, "__TARGETS__",           targets)
 content = inject(content, "__SKU_MONTH_CHAN__",     sku_month_chan)
-content = inject(content, "__SKU_DAY_CHAN__",       sku_day_chan_out)
 content = inject(content, "__SKU_LAST28_CHAN__",    sku_last28)
+content = inject(content, "__SKU_DAY_STORE__",      sku_day_store_out)
+content = inject(content, "__SKU_STORE_OPTIONS__",  sku_store_options)
 content = inject(content, "__SKC_CAT__",           skc_cat)
 content = inject(content, "__SKC_NAME__",          skc_name)
 content = inject(content, "__SKC_IMAGE__",         skc_image)

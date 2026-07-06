@@ -228,6 +228,11 @@
   .sku-search button{height:34px;border:0;border-radius:2px;padding:0 13px;font-weight:700;cursor:pointer;}
   .sku-search .search-btn{background:var(--ink);color:#fff;}
   .sku-search .clear-btn{background:#fff;color:#666;border:1px solid #cbc6c1;}
+  .sku-store-filter{display:flex;align-items:center;gap:8px;margin:-42px 0 14px 310px;max-width:390px;}
+  .sku-store-filter label{font-size:13px;font-weight:700;color:#555;white-space:nowrap;}
+  .sku-store-filter select{height:38px;min-width:260px;max-width:360px;padding:0 34px 0 12px;border:1px solid #cbc6c1;background:#fff;color:#222;font-size:13px;border-radius:2px;outline:none;}
+  .sku-store-filter select:focus{border-color:var(--pink);box-shadow:0 0 0 2px rgba(255,0,140,.10);}
+  @media(max-width:900px){.sku-store-filter{margin:8px 0 12px;max-width:none}.sku-store-filter select{min-width:0;width:100%;}}
   #custCompareTable{table-layout:fixed;}
   #custCompareTable th{
     height:68px;padding:8px 4px;text-align:center;vertical-align:middle;
@@ -476,6 +481,14 @@
       <div class="chan-tabs" id="slowMovingTabs" style="margin:4px 0 10px;">
         <button data-sm="女鞋" class="active">女鞋</button>
         <button data-sm="服装">服装</button>
+        <button data-sm="箱包">箱包</button>
+      </div>
+      <div class="chan-tabs" id="slowMovingSeasonTabs" style="margin:-2px 0 10px;">
+        <button data-season="all" class="active">全部</button>
+        <button data-season="春">春</button>
+        <button data-season="夏">夏</button>
+        <button data-season="秋">秋</button>
+        <button data-season="冬">冬</button>
       </div>
       <div style="overflow-y:auto;max-height:280px;">
         <table>
@@ -483,7 +496,7 @@
           <tbody id="slowMovingTbody"></tbody>
         </table>
       </div>
-      <div class="note" style="margin-top:6px;">周转率=可用库存/近4周平均周净销量；仅显示库存&gt;50件且周转率&gt;10周的SKC。库存为全渠道合计，近4周净销量截至数据最新日期。</div>
+      <div class="note" style="margin-top:6px;">周转率=可用库存/近4周平均周净销量；女鞋仅显示库存&gt;50件，服装/箱包仅显示库存&gt;30件，且周转率均&gt;10周的SKC。库存及近4周净销量随库存渠道联动，近4周净销量截至数据最新日期。</div>
     </div>
   </div>
 
@@ -506,6 +519,10 @@
     <button data-chan="DL线上">DL线上</button>
     <button data-chan="DL线下">DL线下</button>
   </div>
+  <div class="sku-store-filter">
+    <label for="skuStoreSelect">店铺</label>
+    <select id="skuStoreSelect"><option value="all">全部店铺</option></select>
+  </div>
   <div class="card">
     <div class="sku-rank-toolbar">
       <h4 id="skuRankTitle">女鞋 · 全渠道 — SKC销售排行（按期间净销量降序，Top 30）</h4>
@@ -526,7 +543,7 @@
     </div>
     <div class="sku-more-wrap"><button id="skuShowMoreBtn" class="sku-more-btn" type="button" style="display:none;">显示更多</button></div>
     <div class="note" style="margin-top:8px;">
-      口径说明：期间净销量按日级数据汇总，精确跟随顶部起止日期，并可叠加渠道标签筛选；累计净销量、退货率、发货前退货率、发货后退货率均按<strong>全量累计</strong>口径计算（__MIN_DATE__ 至 __MAX_DATE__），不随顶部时间筛选变化；退货率=累计退货数量/累计销售数量，发货前退货率=(累计销售数量-累计实发数量)/累计销售数量，发货后退货率=累计实退数量/累计实发数量；周转率=当前可用库存/近4周（最近28天，截至__MAX_DATE__）平均周净销量，不随顶部时间筛选变化，但随渠道标签联动。默认按期间净销量从高到低展示前30个SKC。
+      口径说明：期间净销量按日级数据汇总，精确跟随顶部起止日期，并可叠加渠道、店铺筛选；累计净销量、退货率、发货前退货率、发货后退货率均按<strong>全量累计</strong>口径计算（__MIN_DATE__ 至 __MAX_DATE__），不随顶部时间筛选变化；退货率=累计退货数量/累计销售数量，发货前退货率=(累计销售数量-累计实发数量)/累计销售数量，发货后退货率=累计实退数量/累计实发数量；库存按渠道仓库口径展示，周转率=当前渠道可用库存/所选店铺近4周（最近28天，截至__MAX_DATE__）平均周净销量。默认按期间净销量从高到低展示前30个SKC。
     </div>
   </div>
 
@@ -1045,10 +1062,11 @@ function render(){
 /* ============ SKC × 月 × 渠道 聚合数据（覆盖5大类；销售排行界面仍限女鞋/服装/箱包）============ */
 // 每行: [月份YYYY-MM, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
 const SKU_MONTH_CHAN = __SKU_MONTH_CHAN__;
-// 日级数据，用于“期间净销量”严格跟随顶部日/月/年/自定义日期范围
-const SKU_DAY_CHAN = __SKU_DAY_CHAN__;
 // 近4周(最近28天，截至__MAX_DATE__)逐日数据，仅用于周转率计算: [日期, SKC, 渠道, 净销量, 销售数量, 退货数量, 实发数量, 实退数量]
 const SKU_LAST28_CHAN = __SKU_LAST28_CHAN__;
+// 店铺粒度日级数据，仅用于销售排行店铺下拉联动；累计、期间及近4周均由这一份数据汇总
+const SKU_DAY_STORE = __SKU_DAY_STORE__;
+const SKU_STORE_OPTIONS = __SKU_STORE_OPTIONS__;
 const SKC_CAT = __SKC_CAT__;      // SKC -> 大类
 const SKC_NAME = __SKC_NAME__;    // SKC -> 商品名称
 const SKC_IMAGE = __SKC_IMAGE__;  // SKC -> 网页商品图片相对 URL
@@ -1066,6 +1084,7 @@ function getSkcInv(skc){
 
 let skuCategory = "女鞋";
 let skuChannel = "all";
+let skuStore = "all";
 let skuSearchTerm = "";
 let skuVisibleCount = 30;
 const SKU_CHANNEL_GROUPS = {
@@ -1079,6 +1098,22 @@ function skuChanMatch(chan){
   return chan===skuChannel; // SKU_MONTH_CHAN/SKU_LAST28_CHAN里的渠道字段已经是分组后的DA/DL线上/DL线下/其他
 }
 
+function skuStoreMatch(store){
+  return skuStore === "all" || store === skuStore;
+}
+
+function refreshSkuStoreOptions(){
+  const select = document.getElementById("skuStoreSelect");
+  const stores = skuChannel === "all"
+    ? [...new Set(Object.values(SKU_STORE_OPTIONS).flat())].sort((a,b)=>a.localeCompare(b,"zh-CN"))
+    : (SKU_STORE_OPTIONS[skuChannel] || []);
+  select.innerHTML = "";
+  select.add(new Option("全部店铺", "all"));
+  stores.forEach(store=>select.add(new Option(store, store)));
+  select.value = stores.includes(skuStore) ? skuStore : "all";
+  skuStore = select.value;
+}
+
 function skuMatchesFilter(skc){
   return skuSearchTerm ? String(skc).includes(skuSearchTerm) : SKC_CAT[skc]===skuCategory;
 }
@@ -1086,32 +1121,28 @@ function skuMatchesFilter(skc){
 function renderSkuRanking(start,end){
   const periodAgg = {}; // skc -> {netQty,saleQty,retQty,shipQty,prQty}
   const cumAgg = {};
-  SKU_MONTH_CHAN.forEach(([ym,skc,chan,netQty,saleQty,retQty,shipQty,prQty])=>{
+  const last28NetQty = {};
+  SKU_DAY_STORE.forEach(([date,skc,chan,store,netQty,saleQty,retQty,shipQty,prQty])=>{
     if(!skuMatchesFilter(skc)) return;
     if(!skuChanMatch(chan)) return;
+    if(!skuStoreMatch(store)) return;
     if(!cumAgg[skc]) cumAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
     const c = cumAgg[skc];
     c.netQty+=netQty; c.saleQty+=saleQty; c.retQty+=retQty; c.shipQty+=shipQty; c.prQty+=prQty;
-  });
-  SKU_DAY_CHAN.forEach(([date,skc,chan,netQty,saleQty,retQty,shipQty,prQty])=>{
-    if(date<start || date>end) return;
-    if(!skuMatchesFilter(skc)) return;
-    if(!skuChanMatch(chan)) return;
-    if(!periodAgg[skc]) periodAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
-    const p = periodAgg[skc];
-    p.netQty+=netQty; p.saleQty+=saleQty; p.retQty+=retQty; p.shipQty+=shipQty; p.prQty+=prQty;
-  });
-
-  // 近4周净销量（用于周转率，固定取最近28天，不随顶部时间筛选变化，但跟渠道标签联动）
-  const last28NetQty = {};
-  SKU_LAST28_CHAN.forEach(([date,skc,chan,netQty])=>{
-    if(!skuMatchesFilter(skc)) return;
-    if(!skuChanMatch(chan)) return;
-    last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
+    if(date>=start && date<=end){
+      if(!periodAgg[skc]) periodAgg[skc] = {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
+      const p = periodAgg[skc];
+      p.netQty+=netQty; p.saleQty+=saleQty; p.retQty+=retQty; p.shipQty+=shipQty; p.prQty+=prQty;
+    }
+    if(date>="__LAST28_START__" && date<="__MAX_DATE__"){
+      last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
+    }
   });
 
   const skcSet = new Set(Object.keys(cumAgg));
-  Object.keys(SKC_CAT).forEach(skc=>{ if(skuMatchesFilter(skc)) skcSet.add(skc); });
+  if(skuStore === "all"){
+    Object.keys(SKC_CAT).forEach(skc=>{ if(skuMatchesFilter(skc)) skcSet.add(skc); });
+  }
 
   const rows = [...skcSet].map(skc=>{
     const p = periodAgg[skc] || {netQty:0,saleQty:0,retQty:0,shipQty:0,prQty:0};
@@ -1136,9 +1167,10 @@ function renderSkuRanking(start,end){
   }
 
   const chanLabel = skuChannel==="all" ? "全渠道" : skuChannel;
+  const storeLabel = skuStore==="all" ? "全部店铺" : skuStore;
   document.getElementById("skuRankTitle").textContent = skuSearchTerm
-    ? `SKC搜索“${skuSearchTerm}” · ${chanLabel} — 找到 ${displayRows.length} 条`
-    : `${skuCategory} · ${chanLabel} — SKC销售排行（按期间净销量降序，Top 30）`;
+    ? `SKC搜索“${skuSearchTerm}” · ${chanLabel} · ${storeLabel} — 找到 ${displayRows.length} 条`
+    : `${skuCategory} · ${chanLabel} · ${storeLabel} — SKC销售排行（按期间净销量降序，Top 30）`;
   const tbody = document.getElementById("skuRankTbody");
   tbody.innerHTML = "";
   if(displayRows.length===0){
@@ -1175,11 +1207,20 @@ document.querySelectorAll("#skuChanTabs button").forEach(btn=>{
     document.querySelectorAll("#skuChanTabs button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     skuChannel = btn.dataset.chan;
+    skuStore = "all";
+    refreshSkuStoreOptions();
     skuVisibleCount = 30;
     const {start,end} = getRange();
     renderSkuRanking(start,end);
   });
 });
+document.getElementById("skuStoreSelect").addEventListener("change", e=>{
+  skuStore = e.target.value;
+  skuVisibleCount = 30;
+  const {start,end} = getRange();
+  renderSkuRanking(start,end);
+});
+refreshSkuStoreOptions();
 
 function applySkuSearch(){
   skuSearchTerm = document.getElementById("skuSearchInput").value.trim();
@@ -1467,25 +1508,35 @@ document.querySelectorAll("#factoryCatTabs button").forEach(btn=>{
   });
 });
 
-/* ============ 滞销预警（周转率>10周，按女鞋/服装切换）============ */
+/* ============ 滞销预警（周转率>10周，按大类/季节切换）============ */
 let slowMovingCat = "女鞋";
+let slowMovingSeason = "all";
+
+function isSlowMovingSeason(skc){
+  if(slowMovingSeason === "all") return true;
+  const nianji = SKC_NIANJI[skc] || "";
+  return nianji.endsWith(slowMovingSeason);
+}
 
 function renderSlowMoving(){
   // 近4周全渠道净销量（SKU_LAST28_CHAN已按SKC×渠道×日期存储）
   const last28NetQty = {};
   SKU_LAST28_CHAN.forEach(([date,skc,chan,netQty])=>{
     if(SKC_CAT[skc] !== slowMovingCat) return;
+    if(!isSlowMovingSeason(skc)) return;
     if(invChannel!=="all" && chan!==invChannel) return;
     last28NetQty[skc] = (last28NetQty[skc]||0) + netQty;
   });
 
   // 全渠道库存
   const rows = [];
+  const inventoryThreshold = slowMovingCat === "女鞋" ? 50 : 30;
   Object.keys(SKC_CAT).forEach(skc=>{
     if(SKC_CAT[skc] !== slowMovingCat) return;
+    if(!isSlowMovingSeason(skc)) return;
     const d = SKC_INV_CHAN[skc];
     const inv = d ? (invChannel==="all" ? Object.values(d).reduce((s,v)=>s+v,0) : (d[invChannel]||0)) : 0;
-    if(inv <= 50) return;  // 库存≤50件不计入预警
+    if(inv <= inventoryThreshold) return;
     const netQty28 = last28NetQty[skc] || 0;
     const avgWeekly = netQty28 / 4;
     const turnover = avgWeekly > 0 ? inv / avgWeekly : Infinity;
@@ -1522,6 +1573,15 @@ document.querySelectorAll("#slowMovingTabs button").forEach(btn=>{
     document.querySelectorAll("#slowMovingTabs button").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
     slowMovingCat = btn.dataset.sm;
+    renderSlowMoving();
+  });
+});
+
+document.querySelectorAll("#slowMovingSeasonTabs button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll("#slowMovingSeasonTabs button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    slowMovingSeason = btn.dataset.season;
     renderSlowMoving();
   });
 });
