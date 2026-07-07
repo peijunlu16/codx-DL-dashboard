@@ -16,6 +16,8 @@ import sys
 import json
 import shutil
 import subprocess
+import re
+from datetime import datetime, timedelta
 from collections import defaultdict
 from pathlib import Path
 
@@ -371,7 +373,7 @@ for _, _, chan, store in sku_day_store.keys():
 sku_store_options = {chan: sorted(stores) for chan, stores in sku_store_options.items()}
 
 # 近28天（截至 max_date 的前28天）
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 max_dt = datetime.strptime(max_date, "%Y-%m-%d")
 last28_start = (max_dt - timedelta(days=27)).strftime("%Y-%m-%d")
 sku_last28 = [
@@ -399,14 +401,47 @@ wh_bars_by_cat = {
 print("[4/6] 读取指标数据...")
 wb = openpyxl.load_workbook(path("指标.xlsx"), read_only=True, data_only=True)
 ws = wb["Sheet1"]
+header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+
+def target_header_to_ym(value):
+    """把Excel表头中的日期或“YYYY年M月”转换成YYYY-MM。"""
+    if isinstance(value, (datetime, date)):
+        return f"{value.year:04d}-{value.month:02d}"
+    if isinstance(value, (int, float)):
+        try:
+            dt = openpyxl.utils.datetime.from_excel(value, wb.epoch)
+            return f"{dt.year:04d}-{dt.month:02d}"
+        except (TypeError, ValueError, OverflowError):
+            return None
+    text = str(value or "").strip()
+    match = re.search(r"(\d{4})\s*年\s*(\d{1,2})\s*月", text)
+    if not match:
+        match = re.search(r"(\d{4})[-/](\d{1,2})", text)
+    if not match:
+        return None
+    year, month = int(match.group(1)), int(match.group(2))
+    return f"{year:04d}-{month:02d}" if 1 <= month <= 12 else None
+
+target_columns = []
+for column_index, header in enumerate(header_row[1:], start=1):
+    ym = target_header_to_ym(header)
+    if ym:
+        target_columns.append((column_index, ym))
+if not target_columns:
+    raise ValueError("指标.xlsx表头未找到可识别的年月，请使用YYYY年M月或Excel日期格式")
+
 targets = {}
 for r in ws.iter_rows(min_row=2, values_only=True):
     if not r[0]: continue
     cust = str(r[0]).strip()
-    monthly = [float(v) if v else 0 for v in r[1:13]]
-    if len(monthly) == 12 and any(monthly):
+    monthly = {
+        ym: float(r[column_index]) if column_index < len(r) and r[column_index] else 0
+        for column_index, ym in target_columns
+    }
+    if any(monthly.values()):
         targets[cust] = monthly
 
+print(f"    指标月份：{target_columns[0][1]} ~ {target_columns[-1][1]}")
 print(f"    指标客户数：{len(targets)}，客户：{list(targets.keys())}")
 
 # =========================================================
@@ -436,11 +471,13 @@ def inject(content, placeholder, data):
     return content.replace(placeholder, js)
 
 # 替换动态最新日期文字
+default_end_date = (datetime.strptime(max_date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
 content = content.replace("__MAX_DATE__", max_date)
 content = content.replace("__MIN_DATE__", min_date)
 content = content.replace("__MAX_MONTH__", max_date[:7])
 content = content.replace("__MIN_MONTH__", min_date[:7])
 content = content.replace("__CURRENT_MONTH_START__", max_date[:7] + "-01")
+content = content.replace("__DEFAULT_END_DATE__", default_end_date)
 content = content.replace("__LAST28_START__", last28_start)
 content = content.replace("__MAX_YEAR__", max_date[:4])
 

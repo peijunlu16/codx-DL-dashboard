@@ -287,7 +287,7 @@
     </div>
     <div class="grp" id="ctrlCustom">
       <span>从</span><input type="date" id="customStart" min="__MIN_DATE__" max="__MAX_DATE__" value="__CURRENT_MONTH_START__">
-      <span>到</span><input type="date" id="customEnd" min="__MIN_DATE__" max="__MAX_DATE__" value="__MAX_DATE__">
+      <span>到</span><input type="date" id="customEnd" min="__MIN_DATE__" max="__MAX_DATE__" value="__DEFAULT_END_DATE__">
     </div>
 
     <button class="apply" id="applyBtn">应用</button>
@@ -563,9 +563,9 @@ function shiftYearStr(dateStr, delta){
   return `${y+delta}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 }
 
-/* ============ 指标.xlsx 月度目标（按自然月1-12月循环套用） ============ */
+/* ============ 指标.xlsx 月度目标（按表头中的实际年月匹配） ============ */
 const TARGETS = __TARGETS__;
-const TARGET_YEAR = "2026"; // 当前指标.xlsx 仅适用于2026年
+const CURRENT_ACH_MONTH = "__MAX_MONTH__"; // 仅最新月份的DL线上按销售金额×30%计入达成
 const ALL_CUSTOMERS = ["京东","天猫","得物","抖音","唯品会","小红书","TX淮海","成都COSMO","南京IST","淮海百盛","TX长沙","DA奉贤金汇","DA中环百联","其他"];
 const CHANNEL_GROUPS = {
   "DA": ["DA奉贤金汇","DA中环百联"],
@@ -629,11 +629,8 @@ function daysInRange(start,end){
   return out;
 }
 function monthTarget(cust, ym){ // ym = 'YYYY-MM'
-  const arr = TARGETS[cust]; if(!arr) return 0;
-  const [year,month] = ym.split("-");
-  if(year !== TARGET_YEAR) return 0;
-  const m = parseInt(month,10)-1;
-  return arr[m] || 0;
+  const byMonth = TARGETS[cust];
+  return byMonth ? (byMonth[ym] || 0) : 0;
 }
 // 目标按"区间覆盖天数 / 该月总天数"比例折算，便于日/自定义区间也能给出合理目标值
 function daysInMonth(ym){
@@ -770,14 +767,21 @@ function render(){
   const TARGET_CUSTOMERS = Object.keys(TARGETS).filter(c=>activeCustomers.includes(c));
   TARGET_CUSTOMERS.forEach(c=> totalTarget += rangeTarget(c));
 
-  // DL线上客户的"指标达成率"按 销售金额(支付金额)×30% 计入实际值，其余客户仍按净销售额计入
+  // 仅最新月份的DL线上按销售金额×30%计入；历史月份及其他渠道均按实际净销售额计入
   const DL_ONLINE_SET = new Set(CHANNEL_GROUPS["DL线上"]);
   function achievementValue(cust){
-    const b = byCust[cust] || {netAmt:0,saleAmt:0};
-    return DL_ONLINE_SET.has(cust) ? b.saleAmt*0.3 : b.netAmt;
+    let total = 0;
+    rows.forEach(r=>{
+      if(r[1] !== cust) return;
+      const isCurrentDLOnline = DL_ONLINE_SET.has(cust) && r[0].slice(0,7) === CURRENT_ACH_MONTH;
+      total += isCurrentDLOnline ? r[5]*0.3 : r[3];
+    });
+    return total;
   }
+  // 整体达成分子覆盖当前渠道全部客户；即使客户暂未设置目标，其实际达成仍计入渠道整体。
+  // 分母继续汇总已有目标，客户明细中无目标客户仍显示“无目标”。
   let targetActual = 0;
-  TARGET_CUSTOMERS.forEach(c=> targetActual += achievementValue(c));
+  activeCustomers.forEach(c=> targetActual += achievementValue(c));
   const achRate = totalTarget>0 ? targetActual/totalTarget : NaN;
   const hasDLOnlineInScope = totalTarget>0 && TARGET_CUSTOMERS.some(c=>DL_ONLINE_SET.has(c));
 
@@ -819,7 +823,7 @@ function render(){
   const noteEl = document.getElementById("dlOnlineNote");
   if(hasDLOnlineInScope){
     noteEl.style.display = "block";
-    noteEl.textContent = "* 备注：当前口径包含「DL线上」客户（得物/抖音/京东/天猫/唯品会/小红书），其指标达成率按「销售金额（支付金额）×30%」计入实际值，其余客户仍按净销售额计入；上方「净销售额」「同比」「环比」展示的是真实净销售额，与达成率的计入口径不同。";
+    noteEl.textContent = `* 备注：仅最新月份（${CURRENT_ACH_MONTH}）的DL线上客户按「销售金额×30%」计入达成；历史月份及其他渠道均按实际净销售额计入。年度或跨月筛选时按各月对应口径汇总。`;
   } else {
     noteEl.style.display = "none";
   }
@@ -920,7 +924,7 @@ function render(){
     const saleAmt = byCust[c]? byCust[c].saleAmt : 0;  // 支付金额
     const yoySaleAmt = yoyByCust[c] || 0;
     const isDLOnline = DL_ONLINE_SET.has(c);
-    const netAmt = isDLOnline ? saleAmt*0.3 : (byCust[c]?byCust[c].netAmt:0); // DL线上本期按支付金额×30%
+    const netAmt = achievementValue(c); // 最新月DL线上按销售金额×30%，历史月份按实际净销售额
     const yoyNetAmt = yoyNetByCust[c] || 0; // 同期保持原始净销售额口径
     const actual = netAmt;
     const tgt = TARGETS[c] !== undefined ? rangeTarget(c) : 0;
@@ -949,7 +953,7 @@ function render(){
     }
     const sharePct = customerTotalNetAmt>0 ? (Math.max(r.netAmt,0)/customerTotalNetAmt*100) : 0;
     const shareCell = `<span style="font-weight:700;">${sharePct.toFixed(1)}%</span>`;
-    const nameCell = r.isDLOnline ? `${r.c}<span title="本期净销售额按支付金额×30%计入" style="color:#ff6b00;font-weight:700;">*</span>` : r.c;
+    const nameCell = r.isDLOnline ? `${r.c}<span title="仅最新月份按销售金额×30%计入，历史月份按实际净销售额" style="color:#ff6b00;font-weight:700;">*</span>` : r.c;
     const yoyPct = r.yoySaleAmt>0 ? (r.saleAmt-r.yoySaleAmt)/r.yoySaleAmt : NaN;
     const netYoyPct = r.yoyNetAmt>0 ? (r.netAmt-r.yoyNetAmt)/r.yoyNetAmt : NaN;
     const yoyAmtCell = r.yoySaleAmt>0 ? fmtWanValue(r.yoySaleAmt) : `<span style="color:#bcc4d2">--</span>`;
