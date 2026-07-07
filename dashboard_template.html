@@ -565,6 +565,7 @@ function shiftYearStr(dateStr, delta){
 
 /* ============ 指标.xlsx 月度目标（按自然月1-12月循环套用） ============ */
 const TARGETS = __TARGETS__;
+const TARGET_YEAR = "2026"; // 当前指标.xlsx 仅适用于2026年
 const ALL_CUSTOMERS = ["京东","天猫","得物","抖音","唯品会","小红书","TX淮海","成都COSMO","南京IST","淮海百盛","TX长沙","DA奉贤金汇","DA中环百联","其他"];
 const CHANNEL_GROUPS = {
   "DA": ["DA奉贤金汇","DA中环百联"],
@@ -580,8 +581,30 @@ const fmtWan = n => (n/10000).toFixed(1) + "万";
 const fmtWanValue = n => (n/10000).toFixed(1);
 const fmtPct = n => isFinite(n) ? (n*100).toFixed(1) + "%" : "--";
 
-function renderTimeProgress(selectedStart,selectedEnd){
+function renderTimeProgress(mode,selectedStart,selectedEnd){
   const latest = "__MAX_DATE__";
+  if(mode === "year"){
+    const selectedYear = document.getElementById("yearPicker").value;
+    if(selectedYear === "all"){
+      document.getElementById("timeProgressLabel").textContent = "时间进度（全部年份数据范围）";
+      document.getElementById("timeProgressTxt").textContent = "100.0%";
+      document.getElementById("timeProgressFill").style.width = "100.0%";
+      return;
+    }
+    const latestYear = latest.slice(0,4);
+    const isHistoricalYear = selectedYear < latestYear;
+    const year = Number(selectedYear);
+    const totalDays = ((year%4===0 && year%100!==0) || year%400===0) ? 366 : 365;
+    const [latestY,latestM,latestD] = latest.split("-").map(Number);
+    const elapsedDays = Math.floor((Date.UTC(latestY,latestM-1,latestD)-Date.UTC(latestY,0,1))/86400000)+1;
+    const progress = isHistoricalYear ? 1 : Math.min(elapsedDays/totalDays,1);
+    document.getElementById("timeProgressLabel").textContent = isHistoricalYear
+      ? `时间进度（${selectedYear}年历史年份已完成）`
+      : `时间进度（截至 ${latest}，按年平均）`;
+    document.getElementById("timeProgressTxt").textContent = (progress*100).toFixed(1)+"%";
+    document.getElementById("timeProgressFill").style.width = (progress*100).toFixed(1)+"%";
+    return;
+  }
   const latestYm = latest.slice(0,7);
   const selectedYm = (selectedEnd||latest).slice(0,7);
   const isHistorical = selectedYm < latestYm;
@@ -607,7 +630,9 @@ function daysInRange(start,end){
 }
 function monthTarget(cust, ym){ // ym = 'YYYY-MM'
   const arr = TARGETS[cust]; if(!arr) return 0;
-  const m = parseInt(ym.split("-")[1],10)-1;
+  const [year,month] = ym.split("-");
+  if(year !== TARGET_YEAR) return 0;
+  const m = parseInt(month,10)-1;
   return arr[m] || 0;
 }
 // 目标按"区间覆盖天数 / 该月总天数"比例折算，便于日/自定义区间也能给出合理目标值
@@ -711,7 +736,7 @@ function getRange(){
 function render(){
   const {mode,start,end,label} = getRange();
   document.getElementById("rangeTag").textContent = label;
-  renderTimeProgress(start,end);
+  renderTimeProgress(mode,start,end);
 
   const rows = RAW.filter(r => r[0] >= start && r[0] <= end);
   const activeCustomers = currentChannel==="all" ? ALL_CUSTOMERS : (CHANNEL_GROUPS[currentChannel] || ALL_CUSTOMERS);
@@ -754,7 +779,7 @@ function render(){
   let targetActual = 0;
   TARGET_CUSTOMERS.forEach(c=> targetActual += achievementValue(c));
   const achRate = totalTarget>0 ? targetActual/totalTarget : NaN;
-  const hasDLOnlineInScope = TARGET_CUSTOMERS.some(c=>DL_ONLINE_SET.has(c));
+  const hasDLOnlineInScope = totalTarget>0 && TARGET_CUSTOMERS.some(c=>DL_ONLINE_SET.has(c));
 
   // -------- 同比 / 环比（按当前渠道标签口径，净销售额）--------
   function parseLocalDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
@@ -782,7 +807,7 @@ function render(){
 
   // -------- 收入概况 KPI（受渠道标签筛选）--------
   document.getElementById("kpiNetAmt").textContent = fmtWan(rNetAmt);
-  document.getElementById("kpiNetAmtTarget").textContent = fmtWan(totalTarget);
+  document.getElementById("kpiNetAmtTarget").textContent = totalTarget>0 ? fmtWan(totalTarget) : "--";
   document.getElementById("kpiNetAmtRate").textContent = fmtPct(achRate);
   document.getElementById("kpiNetQty").textContent = rNetQty.toLocaleString();
   document.getElementById("kpiSaleQty").textContent = rSaleQty.toLocaleString();
@@ -802,7 +827,7 @@ function render(){
   destroyChart("ring");
   charts.ring = new Chart(document.getElementById("ringRevenue"),{
     type:"doughnut",
-    data:{datasets:[{data:[Math.min(achRate*100,100), Math.max(0,100-achRate*100)],
+    data:{datasets:[{data:isFinite(achRate) ? [Math.min(achRate*100,100), Math.max(0,100-achRate*100)] : [0,100],
       backgroundColor:["#ff008c","#eeeae7"],borderWidth:0}]},
     options:{cutout:"75%",plugins:{legend:{display:false},tooltip:{enabled:false}}}
   });
@@ -898,8 +923,8 @@ function render(){
     const netAmt = isDLOnline ? saleAmt*0.3 : (byCust[c]?byCust[c].netAmt:0); // DL线上本期按支付金额×30%
     const yoyNetAmt = yoyNetByCust[c] || 0; // 同期保持原始净销售额口径
     const actual = netAmt;
-    const hasTarget = TARGETS[c] !== undefined;
-    const tgt = hasTarget ? rangeTarget(c) : 0;
+    const tgt = TARGETS[c] !== undefined ? rangeTarget(c) : 0;
+    const hasTarget = tgt > 0;
     const rate = hasTarget && tgt>0 ? actual/tgt : null;
     return {c, saleAmt, yoySaleAmt, netAmt, yoyNetAmt, actual, tgt, rate, hasTarget, isDLOnline};
   }).sort((a,b)=>{

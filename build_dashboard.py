@@ -4,7 +4,7 @@
 经营驾驶舱 一键更新脚本
 使用方法：
   1. 将本脚本与5张Excel文件、dashboard_template.html 放在同一目录下
-  2. 安装依赖：pip install openpyxl
+  2. 安装依赖：pip install openpyxl pg8000
   3. 运行：python build_dashboard.py
   4. 生成：index.html（GitHub Pages 首页，直接用浏览器打开即可）
 
@@ -15,6 +15,7 @@ import os
 import sys
 import json
 import shutil
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
@@ -26,6 +27,25 @@ except ImportError:
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def path(name): return os.path.join(BASE_DIR, name)
+
+# 先从 PostgreSQL 重新生成库存、销售 Excel；失败时停止构建，避免看板继续使用旧数据。
+DATA_GENERATOR = path("generate-data.py")
+if not os.path.exists(DATA_GENERATOR):
+    print("[错误] 找不到数据生成脚本：generate-data.py")
+    sys.exit(1)
+
+print("=" * 60)
+print("[准备] 正在从 PostgreSQL 更新库存数据和销售数据...")
+print("=" * 60)
+try:
+    subprocess.run(
+        [sys.executable, DATA_GENERATOR],
+        cwd=BASE_DIR,
+        check=True,
+    )
+except subprocess.CalledProcessError as exc:
+    print(f"[错误] generate-data.py 执行失败（退出码：{exc.returncode}），看板构建已停止。")
+    sys.exit(exc.returncode or 1)
 
 PRODUCT_IMAGE_DIR = Path(r"D:\总经办工作文档\商品图片\（提取图片）产品图册")
 PUBLIC_PRODUCT_IMAGE_DIR = Path(BASE_DIR) / "assets" / "product-images"
